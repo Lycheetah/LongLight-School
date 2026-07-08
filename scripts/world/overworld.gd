@@ -63,6 +63,9 @@ var _travel_open: bool = false
 var _travel_list: Array = []
 var _map_open: bool = false
 var _los_flash: Dictionary = {}  # {from: Vector2, to: Vector2, t: float}
+var _menu_body: Label
+var _menu_scroll: ScrollContainer
+var _help_section: int = 0  # 0 guide 1 ask 2 myths 3 log
 
 
 func _ready() -> void:
@@ -161,15 +164,84 @@ func _style_ui() -> void:
 		UIChromeUtil.style_label_title($HUD/Dialogue/Speaker)
 	if has_node("HUD/Dialogue/Body"):
 		UIChromeUtil.style_label_body($HUD/Dialogue/Body)
+		var dbody: Label = $HUD/Dialogue/Body
+		dbody.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		dbody.add_theme_font_size_override("font_size", 17)
 	if has_node("HUD/MenuPanel/Title"):
 		UIChromeUtil.style_label_title($HUD/MenuPanel/Title)
-	if has_node("HUD/MenuPanel/Body"):
-		UIChromeUtil.style_label_body($HUD/MenuPanel/Body)
+	_setup_menu_body()
 	# top bar strip
 	if has_node("HUD/TopBar"):
 		$HUD/TopBar.color = Color("120c20e6")
 	if has_node("HUD/BottomBar"):
 		$HUD/BottomBar.color = Color("120c20e6")
+
+
+func _setup_menu_body() -> void:
+	## Prefer Scroll/Body from scene; fall back to creating chrome.
+	if has_node("HUD/MenuPanel/Scroll"):
+		_menu_scroll = $HUD/MenuPanel/Scroll
+	if has_node("HUD/MenuPanel/Scroll/Body"):
+		_menu_body = $HUD/MenuPanel/Scroll/Body
+	elif has_node("HUD/MenuPanel/Body"):
+		_menu_body = $HUD/MenuPanel/Body
+	if _menu_body == null:
+		return
+	UIChromeUtil.style_label_body(_menu_body)
+	_menu_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_menu_body.add_theme_font_size_override("font_size", 15)
+	_menu_body.add_theme_constant_override("line_spacing", 5)
+	# Width drives wrap; height grows for scroll
+	var inner_w: float = 780.0
+	if _menu_scroll:
+		inner_w = maxf(200.0, _menu_scroll.size.x - 24.0)
+		if inner_w < 100.0:
+			inner_w = 780.0
+	_menu_body.custom_minimum_size = Vector2(inner_w, 0)
+	_menu_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+func _set_menu_text(text: String) -> void:
+	if _menu_body == null:
+		_setup_menu_body()
+	if _menu_body == null:
+		return
+	# Soft-wrap long single lines so boxes stay readable
+	_menu_body.text = _polish_menu_text(text)
+	# Grow label height for scroll; reset scroll next frame
+	if _menu_scroll:
+		call_deferred("_menu_scroll_top")
+
+
+func _menu_scroll_top() -> void:
+	if _menu_scroll and is_instance_valid(_menu_scroll):
+		_menu_scroll.scroll_vertical = 0
+	if _menu_body and _menu_scroll:
+		var w: float = maxf(200.0, _menu_scroll.size.x - 16.0)
+		_menu_body.custom_minimum_size = Vector2(w, 0)
+
+
+func _polish_menu_text(text: String) -> String:
+	## Break very long lines at ~72 cols; keep intentional newlines.
+	var out: PackedStringArray = []
+	for raw in text.split("\n"):
+		var line: String = str(raw)
+		if line.length() <= 72:
+			out.append(line)
+			continue
+		var words: PackedStringArray = line.split(" ", false)
+		var cur: String = ""
+		for w in words:
+			if cur == "":
+				cur = w
+			elif cur.length() + 1 + w.length() <= 72:
+				cur += " " + w
+			else:
+				out.append(cur)
+				cur = w
+		if cur != "":
+			out.append(cur)
+	return "\n".join(out)
 
 
 func _setup_companion() -> void:
@@ -892,8 +964,13 @@ func _render_dialogue() -> void:
 	$HUD/Dialogue/Speaker.text = dialogue_speaker
 	if dialogue_i < dialogue_lines.size():
 		var more: bool = dialogue_i < dialogue_lines.size() - 1
-		var footer: String = "\n\n[Enter] continue · [Esc] exit talk" if more else "\n\n[Enter] close · [Esc] exit"
-		$HUD/Dialogue/Body.text = str(dialogue_lines[dialogue_i]) + footer
+		$HUD/Dialogue/Body.text = str(dialogue_lines[dialogue_i])
+		if has_node("HUD/Dialogue/Next"):
+			var nlab: Label = $HUD/Dialogue/Next
+			if more:
+				nlab.text = "Enter continue · Esc exit  (%d/%d)" % [dialogue_i + 1, dialogue_lines.size()]
+			else:
+				nlab.text = "Enter close · Esc exit  (%d/%d)" % [dialogue_i + 1, dialogue_lines.size()]
 	else:
 		_close_dialogue(false)
 
@@ -1125,86 +1202,87 @@ func _do_travel(index: int) -> void:
 
 
 func _fill_menu() -> void:
-	var body: Label = $HUD/MenuPanel/Body
 	var title_n: Label = $HUD/MenuPanel/Title if has_node("HUD/MenuPanel/Title") else null
+	var tab_hint: Label = $HUD/MenuPanel/TabHint if has_node("HUD/MenuPanel/TabHint") else null
 	var qlines: PackedStringArray = []
 	if _mart_open or _menu_tab == 10:
 		if title_n:
 			title_n.text = "KEEPER MART"
-		qlines.append("⟡ Glyph Shards: %d" % int(GameState.inventory.get("glyph_shard", 0)))
+		if tab_hint:
+			tab_hint.text = "1–4 buy · Esc close"
+		qlines.append("School Coins: %d" % GameState.coins())
 		qlines.append("")
 		var i := 1
 		for stock in ContentDB.SHOP_STOCK:
-			qlines.append("[%d] %s — %d⟡" % [i, stock.label, int(stock.cost)])
+			qlines.append("[%d]  %s" % [i, stock.label])
+			qlines.append("     cost %d¢" % int(stock.cost))
 			i += 1
 		qlines.append("")
-		qlines.append("Keys 1–4 buy one · Esc closes mart")
-		body.text = "\n".join(qlines)
+		qlines.append("Press 1–4 to buy one.")
+		_set_menu_text("\n".join(qlines))
 		return
 	if _travel_open or _menu_tab == 11:
 		if title_n:
 			title_n.text = "SHRINE"
+		if tab_hint:
+			tab_hint.text = "0 rest till dawn · 1–9 travel · Esc close"
 		qlines.append("Will restored · phase: %s" % Atmosphere.phase_name())
 		qlines.append("")
-		qlines.append("[0] Rest until dawn (skip night / heal already done)")
+		qlines.append("[0]  Rest until dawn")
 		qlines.append("")
 		qlines.append("— FAST TRAVEL —")
 		var ti := 1
 		for d in _travel_list:
-			var here := " ← you" if str(d.id) == GameState.area_id else ""
-			qlines.append("[%d] %s%s" % [ti, d.name, here])
+			var here := "  ← you" if str(d.id) == GameState.area_id else ""
+			qlines.append("[%d]  %s%s" % [ti, d.name, here])
 			ti += 1
 		if _travel_list.is_empty():
-			qlines.append("(register more shrines by using them)")
-		qlines.append("")
-		qlines.append("0 rest · 1–9 travel · Esc close")
-		body.text = "\n".join(qlines)
+			qlines.append("(use more shrines to register them)")
+		_set_menu_text("\n".join(qlines))
 		return
 	if _map_open or _menu_tab == 12:
 		if title_n:
 			title_n.text = "WORLD MAP"
-		qlines.append("Playtime %s · steps %d · areas %d" % [
-			GameState.playtime_str(), GameState.steps_taken, GameState.areas_visited.size()
+		if tab_hint:
+			tab_hint.text = "N or Esc close · ★ = visited"
+		qlines.append("Playtime %s" % GameState.playtime_str())
+		qlines.append("Steps %d · Areas %d · Secrets %d" % [
+			GameState.steps_taken, GameState.areas_visited.size(), GameState.secrets_found
 		])
-		qlines.append("Battles won %d · fled %d · secrets %d" % [
-			GameState.battles_won, GameState.battles_fled, GameState.secrets_found
-		])
+		qlines.append("Battles won %d · fled %d" % [GameState.battles_won, GameState.battles_fled])
 		qlines.append("")
-		qlines.append("— SCHOOL GRAPH (visited ★) —")
+		qlines.append("— SCHOOL GRAPH —")
 		for aid in ContentDB.WORLD_MAP.keys():
 			var star := "★" if aid in GameState.areas_visited else "·"
-			var here := " ◀" if aid == GameState.area_id else ""
+			var here := "  ◀ here" if aid == GameState.area_id else ""
 			var nm: String = str(ContentDB.AREA_NAMES.get(aid, aid))
-			qlines.append("%s %s%s" % [star, nm, here])
-		qlines.append("")
-		qlines.append("N / Esc close map")
-		body.text = "\n".join(qlines)
+			qlines.append("%s  %s%s" % [star, nm, here])
+		_set_menu_text("\n".join(qlines))
 		return
 	var tabs := ["QUESTS", "BAG", "CODEX", "STORY", "HELP", "SAVE"]
 	var ti_safe: int = clampi(_menu_tab, 0, 5)
 	if title_n:
-		title_n.text = "MENU · %s  (← → tab)" % tabs[ti_safe]
+		title_n.text = "MENU · %s" % tabs[ti_safe]
 	var ai_s := "AI ON" if StoryAI.has_key() else "AI off"
-	qlines.append("Q B C Y H V · %s · slot %d · %s · %s" % [
-		ai_s, GameState.active_slot, GameState.playtime_str(), Atmosphere.phase_name()
-	])
-	qlines.append("")
+	if tab_hint:
+		tab_hint.text = "Q B C Y H V · %s · ¢%d · scroll ↓" % [ai_s, GameState.coins()]
 	match ti_safe:
 		0:
-			qlines.append("— QUESTS —")
-			qlines.append("Now: %s" % GameState.current_quest_tip())
+			qlines.append("NOW")
+			qlines.append(GameState.current_quest_tip())
 			qlines.append("")
+			qlines.append("QUESTS")
 			for qid in ContentDB.QUESTS.keys():
 				var q: Dictionary = ContentDB.QUESTS[qid]
 				var mark := "✓" if (qid in GameState.quests_done or GameState.has_flag(str(q.flag))) else "○"
-				qlines.append("%s %s" % [mark, q.title])
+				qlines.append("%s  %s" % [mark, q.title])
 				if mark == "○":
 					for step in q.get("steps", []):
-						qlines.append("    · %s" % str(step))
+						qlines.append("     · %s" % str(step))
 			qlines.append("")
-			qlines.append("— PARTY —")
-			qlines.append("%s  Lv%d  %s" % [GameState.player_name, GameState.level, GameState.archetype])
-			qlines.append("WILL %d/%d  INS %d  WIL %d  LCK %d" % [
+			qlines.append("PARTY")
+			qlines.append("%s · Lv%d · %s" % [GameState.player_name, GameState.level, GameState.archetype])
+			qlines.append("Will %d/%d · Ins %d · Wil %d · Lck %d" % [
 				GameState.hp, GameState.max_hp,
 				GameState.insight + GameState._relic_insight(),
 				GameState.will_stat + GameState._relic_will(),
@@ -1214,142 +1292,177 @@ func _fill_menu() -> void:
 				GameState.xp, GameState.xp_next, GameState.hall_wins,
 				GameState.star_sparks, GameState.secrets_found
 			])
-			qlines.append("Party: %s  [%s]  [P] switch" % [
-				GameState.companion_name(),
-				", ".join(GameState.companions_unlocked),
-			])
+			qlines.append("Lead: %s  (P switch · T talk)" % GameState.companion_name())
 		1:
-			qlines.append("— BAG · ITEMS —")
+			qlines.append("ITEMS  [1] bread  [2] elixir  [3] dust")
+			qlines.append("")
 			var consumable_n := 0
-			var currency_n := 0
 			for k in GameState.inventory.keys():
 				var it: Dictionary = ContentDB.ITEMS.get(k, {})
-				var t := str(it.get("type", ""))
-				if t == "consumable":
-					qlines.append("  %s x%d — %s" % [it.get("name", k), int(GameState.inventory[k]), it.get("desc", "")])
+				if str(it.get("type", "")) == "consumable":
+					qlines.append("• %s  ×%d" % [it.get("name", k), int(GameState.inventory[k])])
+					qlines.append("  %s" % it.get("desc", ""))
 					consumable_n += 1
-				elif t == "currency":
-					currency_n += 1
 			if consumable_n == 0:
-				qlines.append("  (no consumables)")
+				qlines.append("(no consumables)")
 			qlines.append("")
-			qlines.append("— BAG · CURRENCY —")
+			qlines.append("COINS / CURRENCY")
+			qlines.append("• School Coins  ¢%d" % GameState.coins())
 			for k2 in GameState.inventory.keys():
 				var it2: Dictionary = ContentDB.ITEMS.get(k2, {})
-				if str(it2.get("type", "")) == "currency":
-					qlines.append("  ⟡ %s x%d" % [it2.get("name", k2), int(GameState.inventory[k2])])
-			if currency_n == 0 and int(GameState.inventory.get("glyph_shard", 0)) == 0:
-				qlines.append("  (none)")
+				if str(it2.get("type", "")) == "currency" and str(k2) != "glyph_shard":
+					qlines.append("• %s  ×%d" % [it2.get("name", k2), int(GameState.inventory[k2])])
 			qlines.append("")
-			qlines.append("— BAG · KEY / RELICS —")
+			qlines.append("RELICS / KEYS")
+			if GameState.relics.is_empty():
+				qlines.append("(none yet)")
 			for r in GameState.relics:
 				var nm2: String = str(ContentDB.ITEMS.get(r, {}).get("name", r))
-				qlines.append("  ◆ %s — %s" % [nm2, ContentDB.ITEMS.get(r, {}).get("desc", "")])
+				qlines.append("◆ %s" % nm2)
+				qlines.append("  %s" % ContentDB.ITEMS.get(r, {}).get("desc", ""))
 			for k3 in GameState.inventory.keys():
 				var it3: Dictionary = ContentDB.ITEMS.get(k3, {})
 				if str(it3.get("type", "")) == "key":
-					qlines.append("  ★ %s x%d" % [it3.get("name", k3), int(GameState.inventory[k3])])
-			if GameState.relics.is_empty():
-				qlines.append("  (no relics yet)")
-			qlines.append("")
-			qlines.append("[1] Bread  [2] Elixir  [3] Quiet Dust")
+					qlines.append("★ %s  ×%d" % [it3.get("name", k3), int(GameState.inventory[k3])])
 		2:
-			qlines.append("— CODEX / SKILLS —")
-			qlines.append("1Π 2⟁ 3☿ 4∴ 5⟡ 6▣GUARD 7⊚ASSIST 8ITEM  F:flee")
-			qlines.append("Field: E bush CLEAR · K MEASURE sense · shrine travel")
-			if GameState.has_flag("killed_overclaimer"):
-				qlines.append("• Overclaim: MEASURE the shield first.")
-			if GameState.has_flag("half_made_down"):
-				qlines.append("• Residue: TRANSMUTE completes the form.")
-			if GameState.has_flag("mirror_down"):
-				qlines.append("• Hollow Mirror: vanity is a shield.")
-			if GameState.has_flag("gold_down"):
-				qlines.append("• Gold Threshold: the yellowing held. RUBEDO-RAY open.")
-			if GameState.hall_wins >= 1:
-				qlines.append("• Hall victories: %d / 3 → Albedo." % GameState.hall_wins)
+			qlines.append("BATTLE SKILLS")
+			qlines.append("1 MEASURE   strip false shields")
+			qlines.append("2 COMPRESS  heavy if measured")
+			qlines.append("3 TRANSMUTE heal · residue damage")
+			qlines.append("4 BREAK     anti-loop")
+			qlines.append("5 STRIKE    basic (feeds loops!)")
+			qlines.append("6 GUARD     Lv2+")
+			qlines.append("7 ASSIST    companion · Lv3+")
+			qlines.append("8 ITEM      bread/elixir")
+			qlines.append("9 DBL-Π     Lv5+ · 0 RUBEDO post-Gold")
+			qlines.append("F flee (non-boss)")
 			qlines.append("")
-			qlines.append("— SIGIL CASE —")
+			qlines.append("FIELD")
+			qlines.append("E bush CLEAR · K sense secrets · shrine travel")
+			qlines.append("")
+			qlines.append("LESSONS")
+			if GameState.has_flag("killed_overclaimer"):
+				qlines.append("• Overclaim: MEASURE first.")
+			if GameState.has_flag("half_made_down"):
+				qlines.append("• Residue: TRANSMUTE completes form.")
+			if GameState.has_flag("mirror_down"):
+				qlines.append("• Hollow: vanity is a shield.")
+			if GameState.has_flag("gold_down"):
+				qlines.append("• Gold held · RUBEDO-RAY open.")
+			if GameState.hall_wins >= 1:
+				qlines.append("• Hall wins %d/3 → Albedo." % GameState.hall_wins)
+			qlines.append("")
+			qlines.append("SIGILS  (%d/%d)" % [GameState.sigils_earned().size(), ContentDB.SIGILS.size()])
 			var sigs: Array = GameState.sigils_earned()
 			if sigs.is_empty():
-				qlines.append("(no proofs yet — bosses & trainers leave marks)")
+				qlines.append("(defeat bosses & trainers)")
 			else:
 				for sg in sigs:
-					qlines.append("◆ %s — %s" % [sg.name, sg.desc])
-			qlines.append("(%d / %d)" % [sigs.size(), ContentDB.SIGILS.size()])
+					qlines.append("◆ %s" % sg.name)
+					qlines.append("  %s" % sg.desc)
 			qlines.append("")
-			qlines.append("— BESTIARY —")
+			qlines.append("BESTIARY")
 			if GameState.bestiary.is_empty():
-				qlines.append("(no ideas catalogued yet)")
+				qlines.append("(none catalogued)")
 			else:
 				for fid in GameState.bestiary.keys():
 					var b: Dictionary = GameState.bestiary[fid]
-					qlines.append("• %s ×%d" % [b.get("name", fid), int(b.get("kills", 0))])
+					qlines.append("• %s  ×%d" % [b.get("name", fid), int(b.get("kills", 0))])
 		3:
-			qlines.append("— STORY CHRONICLE —")
-			qlines.append("Progressive pages seal as you walk and win.")
-			if StoryAI.has_api():
-				qlines.append("AI living pages: ON · [R] request next weave")
+			qlines.append("CHRONICLE")
+			qlines.append("Pages seal as you walk and win.")
+			if StoryAI.has_key():
+				qlines.append("AI: on · [R] weave next page")
 			else:
-				qlines.append("AI: off (School texts only)")
+				qlines.append("AI: off · School texts only · [R] check beats")
 			qlines.append("")
-			qlines.append(Journal.story_text_for_menu(5))
-			qlines.append("[R] refresh / request story beat")
+			qlines.append(Journal.story_text_for_menu(4))
 		4:
-			qlines.append("— HELP · FULL SCHOOL GUIDE —")
-			qlines.append("Coins: %d  ·  Myths: %d  ·  %s" % [
-				GameState.coins(), Journal.myths_owned.size(),
-				"AI ON" if StoryAI.has_key() else "AI off",
-			])
+			_fill_help_menu(qlines)
+		5:
+			qlines.append("SAVE SLOTS")
+			qlines.append("Journal, myths, and coins save with you.")
+			qlines.append("")
+			for s in range(1, GameState.SAVE_SLOTS + 1):
+				var peek: Dictionary = GameState.peek_save(s)
+				var mark := "▶" if s == GameState.active_slot else " "
+				if peek.is_empty():
+					qlines.append("%s [%d]  empty" % [mark, s])
+				else:
+					var aname: String = str(ContentDB.AREA_NAMES.get(str(peek.area_id), peek.area_id))
+					qlines.append("%s [%d]  %s · Lv%d %s" % [
+						mark, s, peek.player_name, int(peek.level), peek.archetype
+					])
+					qlines.append("         %s" % aname)
+			qlines.append("")
+			qlines.append("[1/2/3] select · [S] save · [L] load")
+		_:
+			qlines.append("(tab)")
+	_set_menu_text("\n".join(qlines))
+
+
+func _fill_help_menu(qlines: PackedStringArray) -> void:
+	## Sectioned help so text fits: 0 guide · 1 ask · 2 myths · 3 log
+	var sec_names := ["GUIDE", "ASK", "MYTHS", "LOG"]
+	_help_section = clampi(_help_section, 0, 3)
+	qlines.append("HELP  ·  section %s  (%d/4)" % [sec_names[_help_section], _help_section + 1])
+	qlines.append("¢%d coins · %d myths · %s" % [
+		GameState.coins(), Journal.myths_owned.size(),
+		"AI on" if StoryAI.has_key() else "AI off",
+	])
+	qlines.append("Tab section:  , / .   or  keys below")
+	qlines.append("")
+	match _help_section:
+		0:
 			var pages: Array = ContentDB.HELP_PAGES
 			var pi: int = clampi(Journal.help_page, 0, maxi(0, pages.size() - 1))
 			Journal.help_page = pi
+			qlines.append("GUIDE PAGE %d / %d" % [pi + 1, maxi(1, pages.size())])
 			if pages.size() > 0:
 				var pg: Dictionary = pages[pi]
-				qlines.append("Page %d / %d — %s" % [pi + 1, pages.size(), pg.get("title", "")])
+				qlines.append("")
+				qlines.append(str(pg.get("title", "")).to_upper())
+				qlines.append("")
 				qlines.append(str(pg.get("body", "")))
 			qlines.append("")
-			qlines.append("[ / ] pages · 1-5 ask · 6-9 buy myth · 0 myth shelf")
+			qlines.append(",  previous page     .  next page")
+			qlines.append("1–4 jump section    Esc close")
+		1:
+			qlines.append("ASK THE SCHOOL")
+			qlines.append("Press a number for a clear answer.")
 			qlines.append("")
-			qlines.append("— ASK (1–5) —")
 			var qi := 1
 			for qq in ContentDB.HELP_QUESTIONS:
-				qlines.append("[%d] %s" % [qi, qq])
+				qlines.append("[%d]  %s" % [qi, qq])
 				qi += 1
 			qlines.append("")
-			qlines.append("— MYTH ARCHIVE (coins) —")
+			qlines.append("Answers also land in LOG (section 4).")
+		2:
+			qlines.append("MYTH ARCHIVE")
+			qlines.append("Spend School Coins for sealed myths.")
+			qlines.append("")
 			var mi := 0
 			for seed in ContentDB.MYTH_SEED:
 				if mi >= 4:
 					break
-				var owned: String = "✓" if Journal.owns_myth(str(seed.id)) else "%d¢" % int(seed.cost)
-				qlines.append("[%d] %s · %s" % [6 + mi, seed.title, owned])
+				var owned: bool = Journal.owns_myth(str(seed.id))
+				var tag: String = "owned ✓" if owned else "%d¢" % int(seed.cost)
+				qlines.append("[%d]  %s" % [6 + mi, seed.title])
+				qlines.append("     %s" % tag)
 				mi += 1
 			qlines.append("")
-			qlines.append("— HELP LOG —")
-			qlines.append(Journal.help_log_text(3))
-			if not Journal.myths_owned.is_empty():
-				qlines.append("— YOUR MYTHS —")
+			if Journal.myths_owned.is_empty():
+				qlines.append("Your shelf is empty — buy one above.")
+			else:
+				qlines.append("YOUR SHELF")
 				qlines.append(Journal.myths_text())
-		5:
-			qlines.append("— SAVE SLOTS (3) —")
-			for s in range(1, GameState.SAVE_SLOTS + 1):
-				var peek: Dictionary = GameState.peek_save(s)
-				var mark := ">" if s == GameState.active_slot else " "
-				if peek.is_empty():
-					qlines.append("%s [%d]  — empty —" % [mark, s])
-				else:
-					var aname: String = str(ContentDB.AREA_NAMES.get(str(peek.area_id), peek.area_id))
-					qlines.append("%s [%d]  %s  Lv%d %s · %s" % [
-						mark, s, peek.player_name, int(peek.level), peek.archetype, aname
-					])
+		3:
+			qlines.append("HELP LOG")
+			qlines.append("Recent answers and tips.")
 			qlines.append("")
-			qlines.append("[1/2/3] select slot   [S] save here   [L] load selected")
-			qlines.append("Active write slot: %d · journal saves with you" % GameState.active_slot)
+			qlines.append(Journal.help_log_text(6))
 		_:
-			qlines.append("(tab)")
-	qlines.append("")
-	qlines.append("Esc close · ← → tabs · H help · Y story")
-	body.text = "\n".join(qlines)
+			qlines.append("(section)")
 
 
 func _menu_confirm() -> void:
@@ -1480,49 +1593,83 @@ func _input(event: InputEvent) -> void:
 				_fill_menu()
 				_refresh_hud()
 		elif _menu_tab == 4:
-			# Help pages + ask + myths
+			# Help: sections + pages + ask + myths
 			match code:
-				KEY_BRACKETLEFT, KEY_COMMA:
-					Journal.help_page = maxi(0, Journal.help_page - 1)
+				KEY_COMMA:
+					# prev guide page or prev section
+					if _help_section == 0:
+						if Journal.help_page > 0:
+							Journal.help_page -= 1
+						else:
+							_help_section = 3
+					else:
+						_help_section = maxi(0, _help_section - 1)
 					_fill_menu()
-				KEY_BRACKETRIGHT, KEY_PERIOD:
+				KEY_PERIOD:
+					if _help_section == 0:
+						if Journal.help_page < ContentDB.HELP_PAGES.size() - 1:
+							Journal.help_page += 1
+						else:
+							_help_section = mini(3, _help_section + 1)
+					else:
+						_help_section = mini(3, _help_section + 1)
+					_fill_menu()
+				KEY_BRACKETLEFT:
+					Journal.help_page = maxi(0, Journal.help_page - 1)
+					_help_section = 0
+					_fill_menu()
+				KEY_BRACKETRIGHT:
 					Journal.help_page = mini(ContentDB.HELP_PAGES.size() - 1, Journal.help_page + 1)
+					_help_section = 0
 					_fill_menu()
 				KEY_1:
-					Journal.ask_help(0)
+					if _help_section == 1:
+						Journal.ask_help(0)
+					else:
+						_help_section = 0
 					_fill_menu()
 				KEY_2:
-					Journal.ask_help(1)
+					if _help_section == 1:
+						Journal.ask_help(1)
+					else:
+						_help_section = 1
 					_fill_menu()
 				KEY_3:
-					Journal.ask_help(2)
+					if _help_section == 1:
+						Journal.ask_help(2)
+					else:
+						_help_section = 2
 					_fill_menu()
 				KEY_4:
-					Journal.ask_help(3)
+					if _help_section == 1:
+						Journal.ask_help(3)
+					else:
+						_help_section = 3
 					_fill_menu()
 				KEY_5:
-					Journal.ask_help(4)
-					_fill_menu()
+					if _help_section == 1:
+						Journal.ask_help(4)
+						_fill_menu()
 				KEY_6:
+					_help_section = 2
 					Journal.buy_myth(0)
 					_fill_menu()
 					_refresh_hud()
 				KEY_7:
+					_help_section = 2
 					Journal.buy_myth(1)
 					_fill_menu()
 					_refresh_hud()
 				KEY_8:
+					_help_section = 2
 					Journal.buy_myth(2)
 					_fill_menu()
 					_refresh_hud()
 				KEY_9:
+					_help_section = 2
 					Journal.buy_myth(3)
 					_fill_menu()
 					_refresh_hud()
-				KEY_0:
-					GameState.toast.emit("Myths in chronicle (Story tab) + Help shelf.")
-					_menu_tab = 3
-					_fill_menu()
 		elif _menu_tab == 5:
 			match code:
 				KEY_1:

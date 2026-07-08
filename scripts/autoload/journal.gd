@@ -205,13 +205,13 @@ func from_save(data: Dictionary) -> void:
 
 func story_text_for_menu(max_n: int = 5) -> String:
 	if story_entries.is_empty():
-		return "(empty chronicle)"
+		return "(empty chronicle — walk the School)"
 	var lines: PackedStringArray = []
 	var start: int = maxi(0, story_entries.size() - max_n)
 	for i in range(start, story_entries.size()):
 		var e: Dictionary = story_entries[i]
 		var src: String = "AI" if str(e.get("source", "")) in ["ai", "myth"] else "School"
-		lines.append("— %s [%s] —" % [e.get("title", "?"), src])
+		lines.append("· %s  [%s]" % [e.get("title", "?"), src])
 		lines.append(str(e.get("body", "")))
 		lines.append("")
 	return "\n".join(lines)
@@ -219,12 +219,12 @@ func story_text_for_menu(max_n: int = 5) -> String:
 
 func help_log_text(max_n: int = 4) -> String:
 	if help_entries.is_empty():
-		return "(ask 1-5 or read guide pages)"
+		return "(empty — open ASK section and press 1–5)"
 	var lines: PackedStringArray = []
 	var start: int = maxi(0, help_entries.size() - max_n)
 	for i in range(start, help_entries.size()):
 		var e: Dictionary = help_entries[i]
-		lines.append("Q: %s" % e.get("q", "?"))
+		lines.append("Q  %s" % e.get("q", "?"))
 		lines.append(str(e.get("body", "")))
 		lines.append("")
 	return "\n".join(lines)
@@ -232,10 +232,16 @@ func help_log_text(max_n: int = 4) -> String:
 
 func myths_text() -> String:
 	if myths_owned.is_empty():
-		return "(none yet — buy with coins 6-9 in Help)"
+		return "(none yet — section MYTHS, keys 6–9)"
 	var lines: PackedStringArray = []
-	for m in myths_owned:
+	# Show latest first, capped so the box stays readable
+	var n: int = myths_owned.size()
+	var start: int = maxi(0, n - 4)
+	for i in range(start, n):
+		var m: Dictionary = myths_owned[i]
 		lines.append("◆ %s" % m.get("title", "?"))
 		lines.append(str(m.get("body", "")))
 		lines.append("")
+	if n > 4:
+		lines.append("… %d older myths in save" % (n - 4))
 	return "\n".join(lines)

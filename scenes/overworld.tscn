@@ -124,31 +124,32 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 40.0
-offset_top = -180.0
-offset_right = -40.0
-offset_bottom = -50.0
+offset_left = 48.0
+offset_top = -200.0
+offset_right = -48.0
+offset_bottom = -36.0
 
 [node name="Speaker" type="Label" parent="HUD/Dialogue"]
 layout_mode = 0
-offset_left = 16.0
-offset_top = 10.0
-offset_right = 400.0
-offset_bottom = 36.0
+offset_left = 20.0
+offset_top = 12.0
+offset_right = 600.0
+offset_bottom = 40.0
 theme_override_colors/font_color = Color(0.94, 0.82, 0.5, 1)
 theme_override_font_sizes/font_size = 18
 text = "Speaker"
 
 [node name="Body" type="Label" parent="HUD/Dialogue"]
 layout_mode = 0
-offset_left = 16.0
-offset_top = 40.0
-offset_right = 1100.0
-offset_bottom = 110.0
-theme_override_colors/font_color = Color(0.9, 0.87, 0.96, 1)
-theme_override_font_sizes/font_size = 16
+offset_left = 20.0
+offset_top = 44.0
+offset_right = 1160.0
+offset_bottom = 130.0
+theme_override_colors/font_color = Color(0.93, 0.9, 0.98, 1)
+theme_override_font_sizes/font_size = 17
+theme_override_constants/line_spacing = 3
 text = "…"
-autowrap_mode = 2
+autowrap_mode = 3
 
 [node name="Next" type="Label" parent="HUD/Dialogue"]
 layout_mode = 1
@@ -157,13 +158,13 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -160.0
-offset_top = -28.0
-offset_right = -12.0
+offset_left = -280.0
+offset_top = -30.0
+offset_right = -16.0
 offset_bottom = -8.0
-theme_override_colors/font_color = Color(0.51, 0.47, 0.63, 1)
-theme_override_font_sizes/font_size = 12
-text = "E / Enter — next"
+theme_override_colors/font_color = Color(0.65, 0.6, 0.78, 1)
+theme_override_font_sizes/font_size = 13
+text = "Enter continue · Esc exit"
 horizontal_alignment = 2
 
 [node name="MenuPanel" type="Panel" parent="HUD"]
@@ -173,30 +174,47 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -260.0
-offset_right = 320.0
-offset_bottom = 260.0
+offset_left = -420.0
+offset_top = -300.0
+offset_right = 420.0
+offset_bottom = 300.0
 
 [node name="Title" type="Label" parent="HUD/MenuPanel"]
 layout_mode = 0
-offset_left = 16.0
-offset_top = 12.0
-offset_right = 600.0
-offset_bottom = 40.0
+offset_left = 20.0
+offset_top = 14.0
+offset_right = 820.0
+offset_bottom = 44.0
 theme_override_colors/font_color = Color(0.94, 0.82, 0.5, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 22
 text = "SCHOOL MENU"
 
-[node name="Body" type="Label" parent="HUD/MenuPanel"]
+[node name="TabHint" type="Label" parent="HUD/MenuPanel"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 44.0
+offset_right = 820.0
+offset_bottom = 66.0
+theme_override_colors/font_color = Color(0.55, 0.5, 0.7, 1)
+theme_override_font_sizes/font_size = 12
+text = "← → tabs · Esc close · scroll wheel for long text"
+
+[node name="Scroll" type="ScrollContainer" parent="HUD/MenuPanel"]
 layout_mode = 0
 offset_left = 16.0
-offset_top = 48.0
-offset_right = 620.0
-offset_bottom = 500.0
-theme_override_colors/font_color = Color(0.9, 0.87, 0.96, 1)
-theme_override_font_sizes/font_size = 13
+offset_top = 72.0
+offset_right = 824.0
+offset_bottom = 580.0
+horizontal_scroll_mode = 0
+
+[node name="Body" type="Label" parent="HUD/MenuPanel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.92, 0.89, 0.98, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_constants/line_spacing = 4
 text = "…"
+autowrap_mode = 3
 
 [node name="BattleLayer" type="CanvasLayer" parent="."]
 layer = 20
