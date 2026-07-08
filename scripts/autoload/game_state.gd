@@ -10,8 +10,10 @@ signal dialogue_requested(speaker: String, lines: Array)
 signal toast(msg: String)
 signal quest_updated
 
-const SAVE_PATH := "user://longlight_save.json"
+const SAVE_PATH := "user://longlight_save.json"  # legacy slot-1 alias
+const SAVE_SLOTS := 3
 
+var active_slot: int = 1
 var archetype: String = "ALCHEMIST"
 var player_name: String = "Seeker"
 var level: int = 1
@@ -296,8 +298,21 @@ func _check_quests() -> void:
 			quest_updated.emit()
 
 
-func save_game() -> void:
+func slot_path(slot: int) -> String:
+	var s := clampi(slot, 1, SAVE_SLOTS)
+	if s == 1:
+		return SAVE_PATH  # keep legacy path for slot 1
+	return "user://longlight_save_%d.json" % s
+
+
+func save_game(slot: int = -1) -> void:
+	if slot < 0:
+		slot = active_slot
+	slot = clampi(slot, 1, SAVE_SLOTS)
+	active_slot = slot
 	var data := {
+		"v": 2,
+		"slot": slot,
 		"archetype": archetype,
 		"player_name": player_name,
 		"level": level,
@@ -324,21 +339,27 @@ func save_game() -> void:
 		"star_sparks": star_sparks,
 		"collectibles": collectibles,
 	}
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var path := slot_path(slot)
+	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
-		toast.emit("Game saved.")
+		toast.emit("Saved → slot %d." % slot)
 
 
-func load_game() -> bool:
-	if not FileAccess.file_exists(SAVE_PATH):
+func load_game(slot: int = -1) -> bool:
+	if slot < 0:
+		slot = active_slot
+	slot = clampi(slot, 1, SAVE_SLOTS)
+	var path := slot_path(slot)
+	if not FileAccess.file_exists(path):
 		return false
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var f := FileAccess.open(path, FileAccess.READ)
 	if not f:
 		return false
 	var data = JSON.parse_string(f.get_as_text())
 	if typeof(data) != TYPE_DICTIONARY:
 		return false
+	active_slot = slot
 	archetype = str(data.get("archetype", "ALCHEMIST"))
 	player_name = str(data.get("player_name", "Seeker"))
 	level = int(data.get("level", 1))
@@ -368,9 +389,45 @@ func load_game() -> bool:
 	flags_changed.emit()
 	inventory_changed.emit()
 	hp_changed.emit()
-	toast.emit("Game loaded.")
+	toast.emit("Loaded slot %d." % slot)
 	return true
 
 
-func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+func has_save(slot: int = -1) -> bool:
+	if slot < 0:
+		for i in range(1, SAVE_SLOTS + 1):
+			if FileAccess.file_exists(slot_path(i)):
+				return true
+		return false
+	return FileAccess.file_exists(slot_path(slot))
+
+
+func peek_save(slot: int) -> Dictionary:
+	## Lightweight metadata for title/load UI. Empty dict if missing.
+	var path := slot_path(slot)
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if not f:
+		return {}
+	var data = JSON.parse_string(f.get_as_text())
+	if typeof(data) != TYPE_DICTIONARY:
+		return {}
+	return {
+		"slot": slot,
+		"player_name": str(data.get("player_name", "Seeker")),
+		"level": int(data.get("level", 1)),
+		"archetype": str(data.get("archetype", "?")),
+		"area_id": str(data.get("area_id", "sanctum")),
+	}
+
+
+func spend_shards(n: int) -> bool:
+	var have := int(inventory.get("glyph_shard", 0))
+	if have < n:
+		return false
+	inventory["glyph_shard"] = have - n
+	if inventory["glyph_shard"] <= 0:
+		inventory.erase("glyph_shard")
+	inventory_changed.emit()
+	return true

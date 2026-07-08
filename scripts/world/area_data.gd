@@ -61,6 +61,7 @@ static func all_areas() -> Dictionary:
 		"rubedo": _rubedo(),
 		"sanctum_in": _sanctum_interior(),
 		"hall_archive": _hall_archive(),
+		"scriptorium": _scriptorium(),
 		"grotto": _hidden_grotto(),
 		"starwell": _starwell(),
 	}
@@ -433,12 +434,17 @@ static func _wing() -> Dictionary:
 	m[10][13] = T_SHRINE
 	m[h / 2][1] = T_WARP
 	m[h / 2 + 1][1] = T_WARP
+	# north door → Scriptorium interior
+	m[6][12] = T_WARP
+	m[6][13] = T_WARP
 	return {
 		"id": "wing", "name": "East Wing — Albedo", "w": w, "h": h, "tiles": m,
 		"spawn": Vector2(3.5, 10.5),
 		"warps": [
 			{"x": 1, "y": h / 2, "to": "hall", "tx": 28.5, "ty": 10.5},
 			{"x": 1, "y": h / 2 + 1, "to": "hall", "tx": 28.5, "ty": 11.5},
+			{"x": 12, "y": 6, "to": "scriptorium", "tx": 7.5, "ty": 11.5},
+			{"x": 13, "y": 6, "to": "scriptorium", "tx": 8.0, "ty": 11.5},
 		],
 		"npcs": [
 			{
@@ -447,7 +453,8 @@ static func _wing() -> Dictionary:
 				"lines": [
 					"Albedo — whitening. Structure from ash.",
 					"The Half-Made waits center. TRANSMUTE helps complete it.",
-					"When it falls, the Mirror Chamber opens north of the Hall.",
+					"North door: Scriptorium — books, a quiet mart, a tablet of form.",
+					"When Half-Made falls, the Mirror Chamber opens north of the Hall.",
 				],
 			},
 		],
@@ -950,4 +957,90 @@ static func _hall_archive() -> Dictionary:
 				"Trainers in the School are teachers who fight as curriculum.",
 			]},
 		],
+	}
+
+
+static func _scriptorium() -> Dictionary:
+	var w := 18
+	var h := 15
+	var m := _grid(w, h, T_FLOOR)
+	_border(m)
+	_fill(m, 2, 2, 15, 11, T_FLOOR2)
+	_fill(m, 5, 5, 12, 8, T_RUG)
+	# desk walls / shelves
+	for x in range(3, 15):
+		m[3][x] = T_WALL
+	m[3][8] = T_DOOR
+	m[3][9] = T_DOOR
+	m[6][8] = T_ALTAR
+	m[6][9] = T_SHRINE
+	m[h - 2][8] = T_WARP
+	m[h - 2][9] = T_WARP
+	return {
+		"id": "scriptorium", "name": "Wing Scriptorium", "w": w, "h": h, "tiles": m,
+		"spawn": Vector2(8.5, 11.5),
+		"warps": [
+			{"x": 8, "y": h - 2, "to": "wing", "tx": 12.5, "ty": 7.5},
+			{"x": 9, "y": h - 2, "to": "wing", "tx": 13.0, "ty": 7.5},
+		],
+		"npcs": [
+			{
+				"x": 6.0, "y": 7.5, "name": "Ink Adept", "face": "✎",
+				"color": Color(0.85, 0.88, 0.95),
+				"lines": [
+					"Albedo is whitening — structure after the burn.",
+					"Copy the forms carefully. Bad glyphs become bad laws.",
+					"The Half-Made outside is a draft that never closed.",
+				],
+			},
+			{
+				"x": 11.5, "y": 7.5, "name": "Shelf Keeper", "face": "●",
+				"color": Color(0.94, 0.82, 0.5),
+				"shop": true,
+				"lines": [
+					"Scriptorium mart. Shards only. No guilt pricing.",
+				],
+			},
+			{
+				"x": 9.0, "y": 5.5, "name": "Pale Copyist", "face": "◈",
+				"color": Color(0.75, 0.78, 0.9),
+				"trainer": true,
+				"foe": "entropy_worm",
+				"flag": "trainer_copyist",
+				"lines": [
+					"Before you write, survive a draft that eats structure.",
+					"Entropy Worm. Ready?",
+				],
+				"after": ["Ink holds. Good."],
+			},
+		],
+		"spawns": [],
+		"wild": [],
+		"chests": [
+			{"x": 4, "y": 5, "loot": ["elixir", "glyph_shard"], "hint": "Ink locker."},
+			{"x": 13, "y": 9, "loot": ["repel_dust", "bread", "glyph_shard"], "hint": "Under a folio."},
+		],
+		"signs": [
+			{"x": 8, "y": 4, "lines": [
+				"SCRIPTORIUM",
+				"Write what survived Nigredo.",
+				"Do not invent for comfort.",
+			]},
+		],
+		"tablets": [
+			{"x": 10, "y": 4, "lines": [
+				"TABLET OF FORM",
+				"Albedo is not purity theater. It is legible structure.",
+				"Half-made ideas haunt the wing until TRANSMUTE closes them.",
+			]},
+		],
+		"collectibles": [
+			{"x": 14, "y": 6, "id": "star_spark", "name": "Star Spark"},
+		],
+		"dig_spots": [],
+		"bushes": [],
+		"cracks": [],
+		"switches": [],
+		"false_walls": [],
+		"wanderers": [],
 	}

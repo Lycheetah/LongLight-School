@@ -61,8 +61,11 @@ On this machine the session binary lives next to the project:
 | **WASD / Arrows** | Grid step (Pokémon-style) |
 | **Shift** | Faster steps (run) |
 | **E / Enter** | Talk · dig · open · buy · confirm |
-| **Esc / M** | Menu (quests, bag, bestiary, save) |
-| **S / L** | Save / Load (in menu) |
+| **Esc / M** | Menu tabs: Quests · Bag · Codex · Save |
+| **← → / Q B C V** | Switch menu tabs |
+| **S / L** | Save / Load active slot (Save tab: pick 1–3) |
+| **Title L** | Load screen — 3 file slots |
+| **Shop 1–4** | Mart catalog buy (after talking to Keeper) |
 | **1 / 2 / 3** | Use Bread / Elixir / Quiet Dust (in menu) |
 
 ### Battle
@@ -176,7 +179,8 @@ LongLight-School/
 ## Status
 
 **v0.6+ session forge** — playable end-to-end with secrets and ending.  
-Next production jumps: authored tiles/sprites, music, multi-save slots, cutscenes (see `ROADMAP.md`).
+Tier B density landed: 3 save slots, bag categories, multi-item mart, Wing Scriptorium, path/Rubedo cutscenes.  
+Next (Tier C): authored tiles/sprites, chiptune OST, battle cast FX (see `ROADMAP.md`).
 
 ---
 

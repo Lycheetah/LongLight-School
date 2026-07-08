@@ -224,8 +224,55 @@ const AREA_NAMES := {
 	"rubedo": "Flickering Deep — Rubedo",
 	"sanctum_in": "Sanctum Library",
 	"hall_archive": "Hall Archive",
+	"scriptorium": "Wing Scriptorium",
 	"grotto": "Ivy Grotto (Hidden)",
 	"starwell": "Starwell (Secret)",
+}
+
+## Mart catalog — id, cost in glyph_shards, stock label
+const SHOP_STOCK := [
+	{"id": "bread", "cost": 2, "label": "Sanctum Bread (+15 Will)"},
+	{"id": "elixir", "cost": 5, "label": "Elixir of Π (+30 Will)"},
+	{"id": "repel_dust", "cost": 4, "label": "Quiet Dust (50-step calm)"},
+	{"id": "veras_dust", "cost": 3, "label": "Veras Dust (knowledge grit)"},
+]
+
+const CUTSCENES := {
+	"path_first": {
+		"speaker": "⊚ Sol",
+		"lines": [
+			"The Long Path. Routes teach before halls judge.",
+			"Ahead: an Overclaimer — loud, armored in overstatement.",
+			"MEASURE strips false shields. Then COMPRESS what remains.",
+			"I walk with you. No lecture. Just the step.",
+		],
+	},
+	"first_overclaimer": {
+		"speaker": "The Overclaimer",
+		"lines": [
+			"You! Small seeker! My claim is larger than your evidence!",
+			"Believe harder and the world will obey!",
+		],
+		"foe": "overclaimer",
+		"flag": "killed_overclaimer",
+		"meta_flag": "cut_first_overclaimer",
+	},
+	"rubedo_open": {
+		"speaker": "Herald of the Deep",
+		"lines": [
+			"Rubedo. The reddening. Operating from completion — not chasing it.",
+			"Below waits The Unfinished Work: every half-done vow given teeth.",
+			"RUBEDO-RAY is yours if Gold held. The Athanor still burns.",
+			"Finish what you began. Or it finishes you.",
+		],
+	},
+	"wing_scriptorium": {
+		"speaker": "Scriptorium Whisper",
+		"lines": [
+			"White ink on white paper — Albedo's joke.",
+			"Write structure here. Ash becomes form.",
+		],
+	},
 }
 
 const ACTIVE_QUEST_ORDER := [

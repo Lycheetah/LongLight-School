@@ -1,5 +1,5 @@
 extends Control
-## Title → Name → Archetype → Overworld
+## Title → Name → Archetype → Overworld · 3-slot load
 
 @onready var title: Control = $Title
 @onready var archetype: Control = $Archetype
@@ -11,7 +11,10 @@ var arch_i: int = 0
 var _name_layer: Control
 var _name_edit: LineEdit
 var _seeker_name: String = "Seeker"
-var _phase: String = "title"  # title | name | arch | play
+var _phase: String = "title"  # title | load | name | arch | play
+var _load_layer: Control
+var _load_body: Label
+var _load_slot: int = 1
 
 
 func _ready() -> void:
@@ -20,10 +23,8 @@ func _ready() -> void:
 	if overworld_host:
 		overworld_host.visible = false
 	_build_name_ui()
-	if GameState.has_save():
-		title_hint.text = "Enter — New Game   ·   L — Load   ·   Esc — Quit"
-	else:
-		title_hint.text = "Enter — Begin the Work   ·   Esc — Quit"
+	_build_load_ui()
+	_refresh_title_hint()
 	if has_node("Title/Tag"):
 		var blurb: String = ContentDB.LORE_BLURBS[randi() % ContentDB.LORE_BLURBS.size()]
 		$Title/Tag.text = "GBA / DS mystery-school RPG · built in one session\n%s" % blurb
@@ -32,6 +33,13 @@ func _ready() -> void:
 		tw.tween_property($Title/TitleText, "modulate", Color(1.1, 1.05, 0.9), 1.4)
 		tw.tween_property($Title/TitleText, "modulate", Color.WHITE, 1.4)
 	_refresh_arch()
+
+
+func _refresh_title_hint() -> void:
+	if GameState.has_save():
+		title_hint.text = "Enter — New Game   ·   L — Load (3 slots)   ·   Esc — Quit"
+	else:
+		title_hint.text = "Enter — Begin the Work   ·   Esc — Quit"
 
 
 func _build_name_ui() -> void:
@@ -74,7 +82,99 @@ func _build_name_ui() -> void:
 	_name_layer.add_child(hint)
 
 
+func _build_load_ui() -> void:
+	_load_layer = ColorRect.new()
+	_load_layer.name = "LoadSlots"
+	_load_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_load_layer.color = Color("0a0812")
+	_load_layer.visible = false
+	add_child(_load_layer)
+	var t := Label.new()
+	t.text = "LOAD — choose a file"
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	t.offset_top = 120
+	t.offset_left = -280
+	t.offset_right = 280
+	t.offset_bottom = 160
+	t.add_theme_font_size_override("font_size", 28)
+	t.add_theme_color_override("font_color", Color("f0d080"))
+	_load_layer.add_child(t)
+	_load_body = Label.new()
+	_load_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_load_body.set_anchors_preset(Control.PRESET_CENTER)
+	_load_body.offset_left = -320
+	_load_body.offset_top = -80
+	_load_body.offset_right = 320
+	_load_body.offset_bottom = 120
+	_load_body.add_theme_font_size_override("font_size", 18)
+	_load_body.add_theme_color_override("font_color", Color("e8e0f0"))
+	_load_layer.add_child(_load_body)
+	var h := Label.new()
+	h.text = "1 / 2 / 3 select · Enter load · Esc back"
+	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	h.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	h.offset_top = -100
+	h.offset_left = -280
+	h.offset_right = 280
+	h.offset_bottom = -60
+	h.add_theme_color_override("font_color", Color("8a80a8"))
+	_load_layer.add_child(h)
+
+
+func _refresh_load_body() -> void:
+	var lines: PackedStringArray = []
+	for s in range(1, GameState.SAVE_SLOTS + 1):
+		var peek: Dictionary = GameState.peek_save(s)
+		var mark := ">" if s == _load_slot else " "
+		if peek.is_empty():
+			lines.append("%s [%d]  — empty —" % [mark, s])
+		else:
+			var aname: String = str(ContentDB.AREA_NAMES.get(str(peek.area_id), peek.area_id))
+			lines.append("%s [%d]  %s · Lv%d %s · %s" % [
+				mark, s, peek.player_name, int(peek.level), peek.archetype, aname
+			])
+	_load_body.text = "\n".join(lines)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if _phase == "load" and _load_layer and _load_layer.visible:
+		if event is InputEventKey and event.pressed:
+			match event.physical_keycode:
+				KEY_1:
+					_load_slot = 1
+					_refresh_load_body()
+				KEY_2:
+					_load_slot = 2
+					_refresh_load_body()
+				KEY_3:
+					_load_slot = 3
+					_refresh_load_body()
+				KEY_ENTER, KEY_KP_ENTER:
+					if GameState.load_game(_load_slot):
+						_load_layer.visible = false
+						_phase = "play"
+						_start_overworld()
+					else:
+						title_hint.text = "Slot %d is empty." % _load_slot
+				KEY_ESCAPE:
+					_load_layer.visible = false
+					title.visible = true
+					_phase = "title"
+					_refresh_title_hint()
+			if event.is_action_pressed("interact"):
+				if GameState.load_game(_load_slot):
+					_load_layer.visible = false
+					_phase = "play"
+					_start_overworld()
+			if event.is_action_pressed("menu"):
+				_load_layer.visible = false
+				title.visible = true
+				_phase = "title"
+				_refresh_title_hint()
+		get_viewport().set_input_as_handled()
+		return
+
 	if _phase == "title" or title.visible:
 		if event.is_action_pressed("interact"):
 			title.visible = false
@@ -84,9 +184,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_name_edit.text = ""
 			get_viewport().set_input_as_handled()
 		elif event is InputEventKey and event.pressed and event.physical_keycode == KEY_L:
-			if GameState.load_game():
-				_phase = "play"
-				_start_overworld()
+			if GameState.has_save():
+				title.visible = false
+				_phase = "load"
+				_load_layer.visible = true
+				_load_slot = 1
+				for s in range(1, GameState.SAVE_SLOTS + 1):
+					if GameState.has_save(s):
+						_load_slot = s
+						break
+				_refresh_load_body()
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("menu"):
 			get_tree().quit()
@@ -141,6 +248,8 @@ func _start_overworld() -> void:
 	archetype.visible = false
 	if _name_layer:
 		_name_layer.visible = false
+	if _load_layer:
+		_load_layer.visible = false
 	for c in overworld_host.get_children():
 		c.queue_free()
 	var scn: PackedScene = load("res://scenes/overworld.tscn")

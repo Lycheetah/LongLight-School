@@ -14,17 +14,17 @@ We do **not** claim parity. We **close the gap system-by-system**, in priority o
 | DS Pokémon pillar | Our equivalent | Status |
 |-------------------|----------------|--------|
 | Tile-grid walk | Grid step movement | **forging** |
-| Towns + interiors | Sanctum interior, more rooms | **forging** |
+| Towns + interiors | Sanctum / Hall Archive / **Wing Scriptorium** | denser |
 | Routes + grass | Paths, garden wilds | partial |
 | Wild encounter + transition | Tall grass + `!` flash | partial |
-| Trainer battles (LOS + talk) | Teacher/adept trainers | **forging** |
+| Trainer battles (LOS + talk) | Teachers + Copyist trainer | denser |
 | Party of creatures | Party of companions / assists | thin → expand |
 | Gyms / badges | Alchemy floors + sigils | partial |
-| Pokédex | Bestiary + codex | partial |
-| Bag (items/key/TM) | Bag UI categories | **forging** |
-| Mart multi-buy | Keeper shop | thin |
-| Name entry | Seeker name on new game | planned |
-| Multi-save slots | 1 slot | planned |
+| Pokédex | Bestiary + codex tab | partial |
+| Bag (items/key/TM) | Bag tab: items / currency / relics | **done** |
+| Mart multi-buy | Catalog mart 1–4 keys | **done** |
+| Name entry | Seeker name on new game | **done** |
+| Multi-save slots | **3 slots** title + menu | **done** |
 | Music / SFX bank | Procedural SFX only | thin |
 | Authored pixel art | Runtime atlas | thin |
 | Scripted story events | Quest flags | partial |
@@ -46,10 +46,10 @@ We do **not** claim parity. We **close the gap system-by-system**, in priority o
 7. **Lively secrets** ✅ — false walls, digs, cracks, bushes, wanderers, fireflies, Starwell, secret boss  
 
 ### Tier B — “content density”
-7. More interiors (Hall archive, Wing scriptorium)  
-8. Scripted cutscenes (first Overclaimer, Rubedo open)  
-9. Multi-item mart UI  
-10. Name entry + 3 save slots  
+7. More interiors (Hall archive, **Wing Scriptorium**) ✅  
+8. Scripted cutscenes (path intro + first Overclaimer, Rubedo open, Scriptorium whisper) ✅  
+9. Multi-item mart UI (1–4 buy catalog) ✅  
+10. Name entry + **3 save slots** ✅  
 
 ### Tier C — “production”
 11. Aseprite tiles + char sheets  

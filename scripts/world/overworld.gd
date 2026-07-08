@@ -53,8 +53,12 @@ var _minimap: Control
 var _encounter_fx: CanvasLayer
 var _pending_battle: Dictionary = {}
 var _shop_mode: bool = false
+var _mart_open: bool = false
+var _pending_mart: bool = false
 var _location_splash: CanvasLayer
 var _pending_trainer: Dictionary = {}
+var _pending_cut_battle: Dictionary = {}
+var _menu_tab: int = 0  # 0 quests 1 bag 2 codex 3 save
 
 
 func _ready() -> void:
@@ -205,6 +209,46 @@ func load_area(id: String, at: Vector2 = Vector2.ZERO) -> void:
 	if not GameState.has_flag(intro_key) and ContentDB.AREA_NAMES.has(id):
 		GameState.set_flag(intro_key, true)
 		GameState.companion_line = ContentDB.COMPANION_LINES[randi() % ContentDB.COMPANION_LINES.size()]
+	call_deferred("_maybe_area_cutscene", id, prev)
+
+
+func _maybe_area_cutscene(id: String, prev: String) -> void:
+	if prev == id:
+		return
+	if GameState.in_battle or dialogue_ui.visible:
+		return
+	if id == "path" and not GameState.has_flag("cut_path_first"):
+		GameState.set_flag("cut_path_first", true)
+		var cs: Dictionary = ContentDB.CUTSCENES.get("path_first", {})
+		# after Sol intro, chain Overclaimer challenge if not yet cleared
+		if not GameState.has_flag("killed_overclaimer") and not GameState.has_flag("cut_first_overclaimer"):
+			var fo: Dictionary = ContentDB.CUTSCENES.get("first_overclaimer", {})
+			_pending_cut_battle = {
+				"foe": str(fo.get("foe", "overclaimer")),
+				"meta": {
+					"flag": "killed_overclaimer",
+					"once": true,
+					"boss": false,
+					"cutscene": true,
+				},
+			}
+			GameState.set_flag("cut_first_overclaimer", true)
+			var lines: Array = cs.get("lines", []).duplicate()
+			for ln in fo.get("lines", []):
+				lines.append(ln)
+			_open_dialogue(str(cs.get("speaker", "⊚ Sol")), lines)
+		else:
+			_open_dialogue(str(cs.get("speaker", "⊚ Sol")), cs.get("lines", []).duplicate())
+		return
+	if id == "rubedo" and not GameState.has_flag("cut_rubedo_open"):
+		GameState.set_flag("cut_rubedo_open", true)
+		var rb: Dictionary = ContentDB.CUTSCENES.get("rubedo_open", {})
+		_open_dialogue(str(rb.get("speaker", "Herald")), rb.get("lines", []).duplicate())
+		return
+	if id == "scriptorium" and not GameState.has_flag("cut_scriptorium"):
+		GameState.set_flag("cut_scriptorium", true)
+		var sc: Dictionary = ContentDB.CUTSCENES.get("wing_scriptorium", {})
+		_open_dialogue(str(sc.get("speaker", "…")), sc.get("lines", []).duplicate())
 
 
 func _stamp_secret_tiles() -> void:
@@ -657,25 +701,20 @@ func _talk_trainer(n: Dictionary) -> void:
 
 func _open_shop(n: Dictionary) -> void:
 	_shop_mode = true
-	var shards := int(GameState.inventory.get("glyph_shard", 0))
-	var lines: Array = n.get("lines", []).duplicate()
-	lines.append("— KEEPER'S SHELF — you have ⟡%d —" % shards)
-	lines.append("E again while talking: buy Bread (2⟡) if you can afford it.")
-	lines.append("Menu [1] use Bread · [2] use Elixir (5⟡ at shop via E×2).")
-	if shards >= 2:
-		GameState.inventory["glyph_shard"] = shards - 2
-		if GameState.inventory["glyph_shard"] <= 0:
-			GameState.inventory.erase("glyph_shard")
-		GameState.add_item("bread", 1)
-		SFX.ui()
-		lines.append("✦ Traded 2 shards for Sanctum Bread.")
-	else:
-		lines.append("(Need 2 Glyph Shards. Defeat ideas. Return.)")
-	if int(GameState.inventory.get("glyph_shard", 0)) >= 5:
-		GameState.inventory["glyph_shard"] = int(GameState.inventory.get("glyph_shard", 0)) - 5
-		GameState.add_item("elixir", 1)
-		lines.append("✦ Also granted Elixir of Π for 5 shards.")
-	_open_dialogue(str(n.name), lines)
+	_pending_mart = true
+	var greets: Array = n.get("lines", ["Welcome."]).duplicate()
+	greets.append("Browse the shelf when ready…")
+	_open_dialogue(str(n.name), greets)
+
+
+func _open_mart_ui() -> void:
+	_mart_open = true
+	menu_open = true
+	menu_panel.visible = true
+	player.can_move = false
+	_menu_tab = 4
+	_fill_menu()
+	SFX.ui()
 
 
 func _open_dialogue(speaker: String, lines: Array) -> void:
@@ -701,7 +740,6 @@ func _advance_dialogue() -> void:
 	dialogue_i += 1
 	if dialogue_i >= dialogue_lines.size():
 		dialogue_ui.visible = false
-		player.can_move = true
 		# trainer challenge after dialogue
 		if not _pending_trainer.is_empty():
 			var n: Dictionary = _pending_trainer
@@ -711,6 +749,17 @@ func _advance_dialogue() -> void:
 				var foe := str(n.get("foe", "fog_imp"))
 				var meta := {"trainer": true, "flag": tflag, "boss": false, "once": true}
 				_start_battle(foe, meta)
+		elif not _pending_cut_battle.is_empty():
+			var cb: Dictionary = _pending_cut_battle
+			_pending_cut_battle = {}
+			var foe2 := str(cb.get("foe", "overclaimer"))
+			var meta2: Dictionary = cb.get("meta", {"once": true})
+			_start_battle(foe2, meta2)
+		elif _pending_mart:
+			_pending_mart = false
+			_open_mart_ui()
+		else:
+			player.can_move = not menu_open and not _mart_open
 	else:
 		_render_dialogue()
 
@@ -812,69 +861,148 @@ func _trigger_ending() -> void:
 
 
 func _toggle_menu() -> void:
+	if _mart_open:
+		_close_mart()
+		return
 	menu_open = not menu_open
 	menu_panel.visible = menu_open
 	player.can_move = not menu_open and not dialogue_ui.visible
 	SFX.ui()
 	if menu_open:
+		_menu_tab = 0
 		_fill_menu()
+
+
+func _close_mart() -> void:
+	_mart_open = false
+	_shop_mode = false
+	menu_open = false
+	menu_panel.visible = false
+	player.can_move = not dialogue_ui.visible
+	_menu_tab = 0
+	SFX.ui()
 
 
 func _fill_menu() -> void:
 	var body: Label = $HUD/MenuPanel/Body
+	var title_n: Label = $HUD/MenuPanel/Title if has_node("HUD/MenuPanel/Title") else null
 	var qlines: PackedStringArray = []
-	qlines.append("— QUESTS —")
-	for qid in ContentDB.QUESTS.keys():
-		var q: Dictionary = ContentDB.QUESTS[qid]
-		var mark := "✓" if (qid in GameState.quests_done or GameState.has_flag(str(q.flag))) else "○"
-		qlines.append("%s %s" % [mark, q.title])
-		if mark == "○":
-			for step in q.get("steps", []):
-				qlines.append("    · %s" % str(step))
+	if _mart_open or _menu_tab == 4:
+		if title_n:
+			title_n.text = "KEEPER MART"
+		qlines.append("⟡ Glyph Shards: %d" % int(GameState.inventory.get("glyph_shard", 0)))
+		qlines.append("")
+		var i := 1
+		for stock in ContentDB.SHOP_STOCK:
+			qlines.append("[%d] %s — %d⟡" % [i, stock.label, int(stock.cost)])
+			i += 1
+		qlines.append("")
+		qlines.append("Keys 1–4 buy one · Esc closes mart")
+		body.text = "\n".join(qlines)
+		return
+	var tabs := ["QUESTS", "BAG", "CODEX", "SAVE"]
+	if title_n:
+		title_n.text = "MENU · %s  (← → tab)" % tabs[_menu_tab]
+	qlines.append("Tabs: [Q]uests  [B]ag  [C]odex  [V] Save   active slot %d" % GameState.active_slot)
 	qlines.append("")
-	qlines.append("— PARTY —")
-	qlines.append("%s  Lv%d  %s" % [GameState.player_name, GameState.level, GameState.archetype])
-	qlines.append("WILL %d/%d  INS %d  WIL %d  LCK %d" % [
-		GameState.hp, GameState.max_hp,
-		GameState.insight + GameState._relic_insight(),
-		GameState.will_stat + GameState._relic_will(),
-		GameState.luck
-	])
-	qlines.append("XP %d / %d   Hall wins: %d/3" % [GameState.xp, GameState.xp_next, GameState.hall_wins])
+	match _menu_tab:
+		0:
+			qlines.append("— QUESTS —")
+			for qid in ContentDB.QUESTS.keys():
+				var q: Dictionary = ContentDB.QUESTS[qid]
+				var mark := "✓" if (qid in GameState.quests_done or GameState.has_flag(str(q.flag))) else "○"
+				qlines.append("%s %s" % [mark, q.title])
+				if mark == "○":
+					for step in q.get("steps", []):
+						qlines.append("    · %s" % str(step))
+			qlines.append("")
+			qlines.append("— PARTY —")
+			qlines.append("%s  Lv%d  %s" % [GameState.player_name, GameState.level, GameState.archetype])
+			qlines.append("WILL %d/%d  INS %d  WIL %d  LCK %d" % [
+				GameState.hp, GameState.max_hp,
+				GameState.insight + GameState._relic_insight(),
+				GameState.will_stat + GameState._relic_will(),
+				GameState.luck
+			])
+			qlines.append("XP %d/%d · Hall %d/3 · ✧%d · secrets %d" % [
+				GameState.xp, GameState.xp_next, GameState.hall_wins,
+				GameState.star_sparks, GameState.secrets_found
+			])
+		1:
+			qlines.append("— BAG · ITEMS —")
+			var consumable_n := 0
+			var currency_n := 0
+			for k in GameState.inventory.keys():
+				var it: Dictionary = ContentDB.ITEMS.get(k, {})
+				var t := str(it.get("type", ""))
+				if t == "consumable":
+					qlines.append("  %s x%d — %s" % [it.get("name", k), int(GameState.inventory[k]), it.get("desc", "")])
+					consumable_n += 1
+				elif t == "currency":
+					currency_n += 1
+			if consumable_n == 0:
+				qlines.append("  (no consumables)")
+			qlines.append("")
+			qlines.append("— BAG · CURRENCY —")
+			for k2 in GameState.inventory.keys():
+				var it2: Dictionary = ContentDB.ITEMS.get(k2, {})
+				if str(it2.get("type", "")) == "currency":
+					qlines.append("  ⟡ %s x%d" % [it2.get("name", k2), int(GameState.inventory[k2])])
+			if currency_n == 0 and int(GameState.inventory.get("glyph_shard", 0)) == 0:
+				qlines.append("  (none)")
+			qlines.append("")
+			qlines.append("— BAG · KEY / RELICS —")
+			for r in GameState.relics:
+				var nm2: String = str(ContentDB.ITEMS.get(r, {}).get("name", r))
+				qlines.append("  ◆ %s — %s" % [nm2, ContentDB.ITEMS.get(r, {}).get("desc", "")])
+			for k3 in GameState.inventory.keys():
+				var it3: Dictionary = ContentDB.ITEMS.get(k3, {})
+				if str(it3.get("type", "")) == "key":
+					qlines.append("  ★ %s x%d" % [it3.get("name", k3), int(GameState.inventory[k3])])
+			if GameState.relics.is_empty():
+				qlines.append("  (no relics yet)")
+			qlines.append("")
+			qlines.append("[1] Bread  [2] Elixir  [3] Quiet Dust")
+		2:
+			qlines.append("— CODEX / SKILLS —")
+			qlines.append("1Π 2⟁ 3☿ 4∴ 5⟡ 6▣GUARD 7⊚SOL 8ITEM  F:flee")
+			if GameState.has_flag("killed_overclaimer"):
+				qlines.append("• Overclaim: MEASURE the shield first.")
+			if GameState.has_flag("half_made_down"):
+				qlines.append("• Residue: TRANSMUTE completes the form.")
+			if GameState.has_flag("mirror_down"):
+				qlines.append("• Hollow Mirror: vanity is a shield.")
+			if GameState.has_flag("gold_down"):
+				qlines.append("• Gold Threshold: the yellowing held. RUBEDO-RAY open.")
+			if GameState.hall_wins >= 1:
+				qlines.append("• Hall victories: %d / 3 → Albedo." % GameState.hall_wins)
+			qlines.append("")
+			qlines.append("— BESTIARY —")
+			if GameState.bestiary.is_empty():
+				qlines.append("(no ideas catalogued yet)")
+			else:
+				for fid in GameState.bestiary.keys():
+					var b: Dictionary = GameState.bestiary[fid]
+					qlines.append("• %s ×%d" % [b.get("name", fid), int(b.get("kills", 0))])
+		3:
+			qlines.append("— SAVE SLOTS (3) —")
+			for s in range(1, GameState.SAVE_SLOTS + 1):
+				var peek: Dictionary = GameState.peek_save(s)
+				var mark := ">" if s == GameState.active_slot else " "
+				if peek.is_empty():
+					qlines.append("%s [%d]  — empty —" % [mark, s])
+				else:
+					var aname: String = str(ContentDB.AREA_NAMES.get(str(peek.area_id), peek.area_id))
+					qlines.append("%s [%d]  %s  Lv%d %s · %s" % [
+						mark, s, peek.player_name, int(peek.level), peek.archetype, aname
+					])
+			qlines.append("")
+			qlines.append("[1/2/3] select slot   [S] save here   [L] load selected")
+			qlines.append("Active write slot: %d" % GameState.active_slot)
+		_:
+			qlines.append("(tab)")
 	qlines.append("")
-	qlines.append("— INVENTORY —")
-	if GameState.inventory.is_empty() and GameState.relics.is_empty():
-		qlines.append("(empty)")
-	for k in GameState.inventory.keys():
-		var nm: String = str(ContentDB.ITEMS.get(k, {}).get("name", k))
-		qlines.append("%s x%d" % [nm, int(GameState.inventory[k])])
-	for r in GameState.relics:
-		var nm2: String = str(ContentDB.ITEMS.get(r, {}).get("name", r))
-		qlines.append("◆ %s — %s" % [nm2, ContentDB.ITEMS.get(r, {}).get("desc", "")])
-	qlines.append("")
-	qlines.append("— CODEX / SKILLS —")
-	qlines.append("1Π 2⟁ 3☿ 4∴ 5⟡ 6▣GUARD 7⊚SOL 8ITEM  F:flee")
-	if GameState.has_flag("killed_overclaimer"):
-		qlines.append("• Overclaim: MEASURE the shield first.")
-	if GameState.has_flag("half_made_down"):
-		qlines.append("• Residue: TRANSMUTE completes the form.")
-	if GameState.has_flag("mirror_down"):
-		qlines.append("• Hollow Mirror: vanity is a shield.")
-	if GameState.has_flag("gold_down"):
-		qlines.append("• Gold Threshold: the yellowing held.")
-	if GameState.hall_wins >= 1:
-		qlines.append("• Hall victories: %d / 3 → Albedo." % GameState.hall_wins)
-	qlines.append("Secrets %d · Chests %d" % [GameState.secrets_found, GameState.chests_opened.size()])
-	qlines.append("")
-	qlines.append("— BESTIARY —")
-	if GameState.bestiary.is_empty():
-		qlines.append("(no ideas catalogued yet)")
-	else:
-		for fid in GameState.bestiary.keys():
-			var b: Dictionary = GameState.bestiary[fid]
-			qlines.append("• %s ×%d" % [b.get("name", fid), int(b.get("kills", 0))])
-	qlines.append("")
-	qlines.append("[1] Bread  [2] Elixir  [3] Quiet Dust  [S] Save  [L] Load  [Esc]")
+	qlines.append("Esc close · ← → or Q/B/C/V tabs")
 	body.text = "\n".join(qlines)
 
 
@@ -882,32 +1010,120 @@ func _menu_confirm() -> void:
 	pass
 
 
+func _buy_mart(index: int) -> void:
+	if index < 0 or index >= ContentDB.SHOP_STOCK.size():
+		return
+	var stock: Dictionary = ContentDB.SHOP_STOCK[index]
+	var cost := int(stock.cost)
+	var iid := str(stock.id)
+	if not GameState.spend_shards(cost):
+		GameState.toast.emit("Need %d⟡ — earn shards in battle." % cost)
+		return
+	GameState.add_item(iid, 1)
+	SFX.ui()
+	_fill_menu()
+	_refresh_hud()
+
+
 func _input(event: InputEvent) -> void:
 	if not menu_open:
 		return
 	if event is InputEventKey and event.pressed:
-		match event.physical_keycode:
-			KEY_1:
-				GameState.use_consumable("bread")
+		var code: int = event.physical_keycode
+		# mart mode
+		if _mart_open or _menu_tab == 4:
+			match code:
+				KEY_1:
+					_buy_mart(0)
+				KEY_2:
+					_buy_mart(1)
+				KEY_3:
+					_buy_mart(2)
+				KEY_4:
+					_buy_mart(3)
+				KEY_ESCAPE:
+					_close_mart()
+			return
+		# tab switch
+		match code:
+			KEY_LEFT, KEY_Q:
+				_menu_tab = (_menu_tab - 1 + 4) % 4
 				_fill_menu()
-				_refresh_hud()
-			KEY_2:
-				GameState.use_consumable("elixir")
+				return
+			KEY_RIGHT, KEY_B:
+				if code == KEY_B:
+					_menu_tab = 1
+				else:
+					_menu_tab = (_menu_tab + 1) % 4
 				_fill_menu()
-				_refresh_hud()
-			KEY_3:
-				GameState.use_consumable("repel_dust")
+				return
+			KEY_C:
+				_menu_tab = 2
 				_fill_menu()
-				_refresh_hud()
-			KEY_S:
-				GameState.save_game()
-				SFX.save_ok()
-			KEY_L:
-				if GameState.load_game():
-					load_area(GameState.area_id, GameState.pos)
+				return
+			KEY_V:
+				_menu_tab = 3
+				_fill_menu()
+				return
+		if _menu_tab == 1:
+			match code:
+				KEY_1:
+					GameState.use_consumable("bread")
 					_fill_menu()
 					_refresh_hud()
+				KEY_2:
+					GameState.use_consumable("elixir")
+					_fill_menu()
+					_refresh_hud()
+				KEY_3:
+					GameState.use_consumable("repel_dust")
+					_fill_menu()
+					_refresh_hud()
+		elif _menu_tab == 3:
+			match code:
+				KEY_1:
+					GameState.active_slot = 1
+					_fill_menu()
+				KEY_2:
+					GameState.active_slot = 2
+					_fill_menu()
+				KEY_3:
+					GameState.active_slot = 3
+					_fill_menu()
+				KEY_S:
+					GameState.save_game(GameState.active_slot)
 					SFX.save_ok()
+					_fill_menu()
+				KEY_L:
+					if GameState.load_game(GameState.active_slot):
+						load_area(GameState.area_id, GameState.pos)
+						_fill_menu()
+						_refresh_hud()
+						SFX.save_ok()
+		else:
+			match code:
+				KEY_1:
+					GameState.use_consumable("bread")
+					_fill_menu()
+					_refresh_hud()
+				KEY_2:
+					GameState.use_consumable("elixir")
+					_fill_menu()
+					_refresh_hud()
+				KEY_3:
+					GameState.use_consumable("repel_dust")
+					_fill_menu()
+					_refresh_hud()
+				KEY_S:
+					GameState.save_game()
+					SFX.save_ok()
+					_fill_menu()
+				KEY_L:
+					if GameState.load_game():
+						load_area(GameState.area_id, GameState.pos)
+						_fill_menu()
+						_refresh_hud()
+						SFX.save_ok()
 
 
 func _on_toast(msg: String) -> void:
