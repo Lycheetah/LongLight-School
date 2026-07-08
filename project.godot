@@ -14,6 +14,8 @@ GameState="*res://scripts/autoload/game_state.gd"
 ContentDB="*res://scripts/autoload/content_db.gd"
 SFX="*res://scripts/autoload/sfx.gd"
 Atmosphere="*res://scripts/autoload/atmosphere.gd"
+StoryAI="*res://scripts/autoload/story_ai.gd"
+Journal="*res://scripts/autoload/journal.gd"
 
 [display]
 window/size/viewport_width=1280

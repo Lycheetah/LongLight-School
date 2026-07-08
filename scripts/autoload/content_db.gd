@@ -153,7 +153,7 @@ const FOES := {
 }
 
 const ITEMS := {
-	"glyph_shard": {"name": "Glyph Shard", "desc": "LAMAGUE fragment. School currency.", "type": "currency"},
+	"glyph_shard": {"name": "School Coin", "desc": "Glyph-shard currency. Wins, digs, chests. Buys myths.", "type": "currency"},
 	"veras_dust": {"name": "Veras Dust", "desc": "Knowledge-dust.", "type": "currency"},
 	"candle": {"name": "Candle of First Light", "desc": "+2 Insight while held.", "type": "relic", "insight": 2},
 	"mercury_vial": {"name": "Mercury Vial", "desc": "+1 Luck · quickening.", "type": "relic", "luck": 1},
@@ -372,6 +372,67 @@ const FIELD_TIPS := [
 	"Field MEASURE: press K near secrets — dig spots and cracks ping.",
 	"Shrines heal and open fast travel once registered.",
 	"Break wall cracks with E — shards of language fall out.",
+]
+
+const STORY_OPENING := "You arrive as Seeker under the Long Light. The School does not demand haste. North the Path teaches routes. Beyond it, Nigredo blackens false claims. Sol walks with you. Rest is valid. The Work compounds room by room."
+
+## Progressive beats — one field per dict value (GDScript-safe)
+const STORY_BEATS := [
+	{"id": "arrive", "area": "sanctum", "title": "Arrival", "text": "Sanctum Grounds: shrine, Magister Ember, Quiet Garden east. Talk, rest, walk north when ready."},
+	{"id": "met_ember", "flag": "met_ember", "title": "Ember's Charge", "text": "Path to Hall to Wing to Mirror to Gold to Rubedo. Interiors matter. Measure before you claim."},
+	{"id": "path_walk", "area": "path", "title": "The Long Path", "text": "Routes between towns of mind. Tall grass hides small ideas. Overclaimer ahead — MEASURE first."},
+	{"id": "first_measure", "flag": "killed_overclaimer", "title": "First True Measure", "text": "Shield stripped. First law: evidence before volume."},
+	{"id": "hall_enter", "area": "hall", "title": "Nigredo Hall", "text": "Three wins open Albedo. West wall hides Crypt. Archive trains the careful."},
+	{"id": "crypt_enter", "area": "crypt", "title": "What Was Never Said", "text": "Silence has weight. Face The Unsaid as structure, not shame."},
+	{"id": "hall_clear", "flag": "hall_cleared", "title": "East Wing Unsealed", "text": "Albedo opens. Complete the Half-Made — do not abandon it."},
+	{"id": "albedo", "flag": "half_made_down", "title": "Albedo Holds", "text": "Luna may join. North of Hall: Mirror Chamber."},
+	{"id": "mirror", "flag": "mirror_down", "title": "Hollow Faced", "text": "Vanity was a shield. Beyond: Citrinitas gold."},
+	{"id": "gold", "flag": "gold_down", "title": "Gold Threshold", "text": "RUBEDO-RAY unlocks. North: Flickering Deep."},
+	{"id": "rubedo", "area": "rubedo", "title": "Rubedo Deep", "text": "Operate from completion. Face The Unfinished Work."},
+	{"id": "done", "flag": "rubedo_complete", "title": "The Work Fixed", "text": "Sol Stone warms. Companions stay. Secrets remain if you seek them."},
+	{"id": "observatory", "area": "observatory", "title": "Night Measure", "text": "Garden stone opened the night path. Fixed points, not omens."},
+]
+
+const HELP_QUESTIONS := [
+	"How do I play? Controls and goals.",
+	"How does combat work?",
+	"Where should I go next in the story?",
+	"What are field skills and shrines?",
+	"How do companions Sol and Luna work?",
+]
+
+const HELP_PAGES := [
+	{"title": "What this game is", "body": "Handheld Mystery School RPG: grid walk, Lycheetah combat (MEASURE first), Great Work Nigredo to Rubedo. No capture grind. Companions never punish rest."},
+	{"title": "Controls", "body": "WASD/arrows step. Shift run. E talk/use. Esc menu. P companion. K field MEASURE. N map. T talk to companion. Myths menu in Help. Battle 1-0 skills, F flee. Enter continue dialogue, Esc exit talk."},
+	{"title": "Combat", "body": "1 MEASURE shields. 2 COMPRESS if measured. 3 TRANSMUTE heal. 4 BREAK loops. 5 STRIKE (feeds loops!). 6 GUARD. 7 companion. 8 item. 9 Double-Pi Lv5. 0 Rubedo-Ray post-Gold."},
+	{"title": "World path", "body": "Sanctum > Path > Hall (3 wins) > Wing > Mirror > Citrinitas > Rubedo. Secrets: Crypt (Hall west), Observatory (Garden stone), Starwell (Path west), Library/Archive/Scriptorium interiors."},
+	{"title": "Coins & myths", "body": "Win battles and digs for School Coins (glyph shards). Spend at Myth Archive in Help tab (6-9) for sealed myths — offline bank or AI-forged if DEEPSEEK_KEY set."},
+	{"title": "AI brain", "body": "launch.sh loads DEEPSEEK_KEY from AZOTH .env. Story/help/myths enrich online. Offline always works. Keys never in git."},
+]
+
+const MYTH_SEED := [
+	{"id": "myth_pi", "title": "The Measure That Held", "cost": 3, "body": "Once a seeker claimed the sun was optional. Pi answered with a quiet collapse of every false shield in the hall."},
+	{"id": "myth_rest", "title": "The Fire That Waited", "cost": 2, "body": "A companion kept the coal while the seeker slept three winters. No wilt. No lecture. Only warmth on return."},
+	{"id": "myth_loop", "title": "The Loop That Starved", "cost": 4, "body": "They stopped feeding it with STRIKE. BREAK opened a door shaped like therefore."},
+	{"id": "myth_luna", "title": "Cool Light", "cost": 3, "body": "Luna does not scold the dark. She measures it until it becomes a path."},
+	{"id": "myth_unsaid", "title": "Crypt Whisper", "cost": 5, "body": "What was never spoken grew teeth under the Hall. Naming it was the first medicine."},
+	{"id": "myth_gold", "title": "Yellowing", "cost": 4, "body": "Gold is not loot. Gold is coherence that survived its own review."},
+]
+
+const COMPANION_TALK_SOL := [
+	"The light grows. What do you need — direction, rest, or a true measure?",
+	"North is curriculum. East of Sanctum is soft grass. I walk either way.",
+	"If combat confuses: MEASURE the loud ones first. Never punch the lie.",
+	"Rest is valid. I keep the fire. That is law, not poetry.",
+	"Secrets hide in walls that look solid and earth that looks disturbed. K can ping them.",
+]
+
+const COMPANION_TALK_LUNA := [
+	"Cool measure. I do not scold absence — only ask what you want to face next.",
+	"Hollow things wear pretty faces. MEASURE vanity. Then COMPRESS.",
+	"Albedo is form after burn. Half-done ideas haunt until you close them.",
+	"I will hold the quiet with you. Ask again when the School feels too loud.",
+	"Coins buy myths. Myths buy orientation. Orientation is a kind of kindness.",
 ]
 
 const LORE_BLURBS := [

@@ -58,7 +58,7 @@ var _pending_mart: bool = false
 var _location_splash: CanvasLayer
 var _pending_trainer: Dictionary = {}
 var _pending_cut_battle: Dictionary = {}
-var _menu_tab: int = 0  # 0 quests 1 bag 2 codex 3 save 5 travel
+var _menu_tab: int = 0  # 0 quests 1 bag 2 codex 3 story 4 help 5 save · 10 mart 11 travel 12 map
 var _travel_open: bool = false
 var _travel_list: Array = []
 var _map_open: bool = false
@@ -71,6 +71,11 @@ func _ready() -> void:
 	GameState.hp_changed.connect(_refresh_hud)
 	GameState.battle_requested.connect(_on_battle_req)
 	GameState.quest_updated.connect(_refresh_hud)
+	if Journal.journal_changed.get_connections().is_empty() or true:
+		if not Journal.journal_changed.is_connected(_on_journal):
+			Journal.journal_changed.connect(_on_journal)
+	if StoryAI and not StoryAI.status_changed.is_connected(_on_ai_status):
+		StoryAI.status_changed.connect(_on_ai_status)
 	dialogue_ui.visible = false
 	menu_panel.visible = false
 	battle_layer.visible = false
@@ -85,8 +90,21 @@ func _ready() -> void:
 		camera.zoom = Vector2(2.15, 2.15)
 		camera.position_smoothing_enabled = true
 		camera.position_smoothing_speed = 12.0
+	# Ensure journal has prologue if new boot into overworld mid-run
+	if Journal.story_entries.is_empty():
+		Journal.clear_run()
 	load_area(GameState.area_id, GameState.pos)
 	_refresh_hud()
+
+
+func _on_journal() -> void:
+	if menu_open and _menu_tab in [3, 4]:
+		_fill_menu()
+
+
+func _on_ai_status(msg: String) -> void:
+	if msg != "":
+		GameState.toast.emit(msg)
 
 
 func _build_extra_hud() -> void:
@@ -216,6 +234,7 @@ func load_area(id: String, at: Vector2 = Vector2.ZERO) -> void:
 		if _location_splash and _location_splash.has_method("show_location"):
 			_location_splash.show_location(str(area.get("name", id)))
 	GameState.toast.emit(str(area.get("name", id)))
+	Journal.try_story_triggers()
 	# snap player to grid
 	if player.has_method("_tile_center"):
 		var t: Vector2i = player._tile_of(player.global_position)
@@ -505,8 +524,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if dialogue_ui.visible:
-		if event.is_action_pressed("interact"):
+		if event.is_action_pressed("interact") or (event is InputEventKey and event.pressed \
+				and (event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER or event.physical_keycode == KEY_SPACE)):
 			_advance_dialogue()
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("menu") or (event is InputEventKey and event.pressed and event.physical_keycode == KEY_ESCAPE):
+			_close_dialogue(true)
 			get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -516,6 +539,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_refresh_companion_sprite()
 				_refresh_hud()
 				SFX.assist()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_T:
+				_talk_companion()
 				get_viewport().set_input_as_handled()
 				return
 			KEY_K:
@@ -570,7 +597,7 @@ func _open_shrine_menu() -> void:
 	menu_open = true
 	menu_panel.visible = true
 	player.can_move = false
-	_menu_tab = 5
+	_menu_tab = 11
 	_fill_menu()
 	SFX.ui()
 
@@ -583,7 +610,7 @@ func _toggle_world_map() -> void:
 	menu_panel.visible = _map_open
 	player.can_move = not _map_open
 	if _map_open:
-		_menu_tab = 6
+		_menu_tab = 12
 		_fill_menu()
 	else:
 		_menu_tab = 0
@@ -681,10 +708,11 @@ func _interact() -> void:
 			GameState.secrets_found += 1
 			for it in d.get("loot", []):
 				GameState.add_item(str(it))
+			GameState.earn_coins(1, "dig")
 			SFX.save_ok()
 			tiles[int(d.y)][int(d.x)] = AreaData.T_PATH
 			map_draw.queue_redraw()
-			_open_dialogue("Dig", [str(d.get("msg", "You dig.")), "Loot secured."])
+			_open_dialogue("Dig", [str(d.get("msg", "You dig.")), "Loot secured. +1 coin."])
 			return
 	# switches
 	for sw in switches:
@@ -845,7 +873,7 @@ func _open_mart_ui() -> void:
 	menu_open = true
 	menu_panel.visible = true
 	player.can_move = false
-	_menu_tab = 4
+	_menu_tab = 10
 	_fill_menu()
 	SFX.ui()
 
@@ -863,38 +891,73 @@ func _open_dialogue(speaker: String, lines: Array) -> void:
 func _render_dialogue() -> void:
 	$HUD/Dialogue/Speaker.text = dialogue_speaker
 	if dialogue_i < dialogue_lines.size():
-		$HUD/Dialogue/Body.text = str(dialogue_lines[dialogue_i])
+		var more: bool = dialogue_i < dialogue_lines.size() - 1
+		var footer: String = "\n\n[Enter] continue · [Esc] exit talk" if more else "\n\n[Enter] close · [Esc] exit"
+		$HUD/Dialogue/Body.text = str(dialogue_lines[dialogue_i]) + footer
 	else:
-		dialogue_ui.visible = false
-		player.can_move = true
+		_close_dialogue(false)
+
+
+func _close_dialogue(cancel: bool = false) -> void:
+	## Exit talk. cancel=true skips pending trainer/battle/mart from this chat.
+	dialogue_ui.visible = false
+	dialogue_lines = []
+	dialogue_i = 0
+	if cancel:
+		_pending_trainer = {}
+		_pending_cut_battle = {}
+		_pending_mart = false
+		player.can_move = not menu_open and not _mart_open
+		GameState.toast.emit("Talk ended.")
+		return
+	if not _pending_trainer.is_empty():
+		var n: Dictionary = _pending_trainer
+		_pending_trainer = {}
+		var tflag := str(n.get("flag", ""))
+		if tflag == "" or not GameState.has_flag(tflag):
+			var foe := str(n.get("foe", "fog_imp"))
+			var meta := {"trainer": true, "flag": tflag, "boss": false, "once": true}
+			_start_battle(foe, meta)
+			return
+	if not _pending_cut_battle.is_empty():
+		var cb: Dictionary = _pending_cut_battle
+		_pending_cut_battle = {}
+		_start_battle(str(cb.get("foe", "overclaimer")), cb.get("meta", {"once": true}))
+		return
+	if _pending_mart:
+		_pending_mart = false
+		_open_mart_ui()
+		return
+	player.can_move = not menu_open and not _mart_open
 
 
 func _advance_dialogue() -> void:
 	dialogue_i += 1
 	if dialogue_i >= dialogue_lines.size():
-		dialogue_ui.visible = false
-		# trainer challenge after dialogue
-		if not _pending_trainer.is_empty():
-			var n: Dictionary = _pending_trainer
-			_pending_trainer = {}
-			var tflag := str(n.get("flag", ""))
-			if tflag == "" or not GameState.has_flag(tflag):
-				var foe := str(n.get("foe", "fog_imp"))
-				var meta := {"trainer": true, "flag": tflag, "boss": false, "once": true}
-				_start_battle(foe, meta)
-		elif not _pending_cut_battle.is_empty():
-			var cb: Dictionary = _pending_cut_battle
-			_pending_cut_battle = {}
-			var foe2 := str(cb.get("foe", "overclaimer"))
-			var meta2: Dictionary = cb.get("meta", {"once": true})
-			_start_battle(foe2, meta2)
-		elif _pending_mart:
-			_pending_mart = false
-			_open_mart_ui()
-		else:
-			player.can_move = not menu_open and not _mart_open
+		_close_dialogue(false)
 	else:
 		_render_dialogue()
+		SFX.talk()
+
+
+func _talk_companion() -> void:
+	var who: String = GameState.active_companion
+	var lines: Array = []
+	if who == "luna":
+		var pool: Array = ContentDB.COMPANION_TALK_LUNA
+		lines.append(pool[randi() % pool.size()])
+		lines.append("Press T anytime. P switches lead when both walk with you.")
+	else:
+		var pool2: Array = ContentDB.COMPANION_TALK_SOL
+		lines.append(pool2[randi() % pool2.size()])
+		lines.append("Quest tip: %s" % GameState.current_quest_tip())
+	# small coin tip chance
+	if randf() < 0.2:
+		GameState.earn_coins(1, "companion wisdom")
+	var speaker: String = "%s %s" % [GameState.companion_glyph(), GameState.companion_name()]
+	_open_dialogue(speaker, lines)
+	if StoryAI.has_api():
+		StoryAI.request_companion_line(who, StoryAI.build_context())
 
 
 func _start_battle(foe_id: String, meta: Dictionary) -> void:
@@ -940,6 +1003,10 @@ func on_battle_ended(won: bool, meta: Dictionary) -> void:
 	if won:
 		SFX.win()
 		GameState.battles_won += 1
+		var coin_n: int = 2 + (3 if bool(meta.get("trainer", false)) else 0) + (4 if bool(meta.get("boss", false)) else 0)
+		if bool(meta.get("wild", false)):
+			coin_n = 1 + randi() % 2
+		GameState.earn_coins(coin_n, "battle")
 		var key := "%d,%d" % [int(meta.get("x", -1)), int(meta.get("y", -1))]
 		if meta.get("once", true) and int(meta.get("x", -1)) >= 0:
 			spawn_dead[key] = true
@@ -1061,7 +1128,7 @@ func _fill_menu() -> void:
 	var body: Label = $HUD/MenuPanel/Body
 	var title_n: Label = $HUD/MenuPanel/Title if has_node("HUD/MenuPanel/Title") else null
 	var qlines: PackedStringArray = []
-	if _mart_open or _menu_tab == 4:
+	if _mart_open or _menu_tab == 10:
 		if title_n:
 			title_n.text = "KEEPER MART"
 		qlines.append("⟡ Glyph Shards: %d" % int(GameState.inventory.get("glyph_shard", 0)))
@@ -1074,7 +1141,7 @@ func _fill_menu() -> void:
 		qlines.append("Keys 1–4 buy one · Esc closes mart")
 		body.text = "\n".join(qlines)
 		return
-	if _travel_open or _menu_tab == 5:
+	if _travel_open or _menu_tab == 11:
 		if title_n:
 			title_n.text = "SHRINE"
 		qlines.append("Will restored · phase: %s" % Atmosphere.phase_name())
@@ -1093,7 +1160,7 @@ func _fill_menu() -> void:
 		qlines.append("0 rest · 1–9 travel · Esc close")
 		body.text = "\n".join(qlines)
 		return
-	if _map_open or _menu_tab == 6:
+	if _map_open or _menu_tab == 12:
 		if title_n:
 			title_n.text = "WORLD MAP"
 		qlines.append("Playtime %s · steps %d · areas %d" % [
@@ -1113,16 +1180,20 @@ func _fill_menu() -> void:
 		qlines.append("N / Esc close map")
 		body.text = "\n".join(qlines)
 		return
-	var tabs := ["QUESTS", "BAG", "CODEX", "SAVE"]
+	var tabs := ["QUESTS", "BAG", "CODEX", "STORY", "HELP", "SAVE"]
+	var ti_safe: int = clampi(_menu_tab, 0, 5)
 	if title_n:
-		title_n.text = "MENU · %s  (← → tab)" % tabs[_menu_tab]
-	qlines.append("Tabs Q/B/C/V · slot %d · P party · K measure · N map · %s" % [
-		GameState.active_slot, GameState.playtime_str()
+		title_n.text = "MENU · %s  (← → tab)" % tabs[ti_safe]
+	var ai_s := "AI ON" if StoryAI.has_key() else "AI off"
+	qlines.append("Q B C Y H V · %s · slot %d · %s · %s" % [
+		ai_s, GameState.active_slot, GameState.playtime_str(), Atmosphere.phase_name()
 	])
 	qlines.append("")
-	match _menu_tab:
+	match ti_safe:
 		0:
 			qlines.append("— QUESTS —")
+			qlines.append("Now: %s" % GameState.current_quest_tip())
+			qlines.append("")
 			for qid in ContentDB.QUESTS.keys():
 				var q: Dictionary = ContentDB.QUESTS[qid]
 				var mark := "✓" if (qid in GameState.quests_done or GameState.has_flag(str(q.flag))) else "○"
@@ -1143,12 +1214,9 @@ func _fill_menu() -> void:
 				GameState.xp, GameState.xp_next, GameState.hall_wins,
 				GameState.star_sparks, GameState.secrets_found
 			])
-			qlines.append("Party: %s  (unlocked: %s)  [P] switch" % [
+			qlines.append("Party: %s  [%s]  [P] switch" % [
 				GameState.companion_name(),
 				", ".join(GameState.companions_unlocked),
-			])
-			qlines.append("Time %s · %s · steps %d" % [
-				GameState.playtime_str(), Atmosphere.phase_name(), GameState.steps_taken
 			])
 		1:
 			qlines.append("— BAG · ITEMS —")
@@ -1217,6 +1285,52 @@ func _fill_menu() -> void:
 					var b: Dictionary = GameState.bestiary[fid]
 					qlines.append("• %s ×%d" % [b.get("name", fid), int(b.get("kills", 0))])
 		3:
+			qlines.append("— STORY CHRONICLE —")
+			qlines.append("Progressive pages seal as you walk and win.")
+			if StoryAI.has_api():
+				qlines.append("AI living pages: ON · [R] request next weave")
+			else:
+				qlines.append("AI: off (School texts only)")
+			qlines.append("")
+			qlines.append(Journal.story_text_for_menu(5))
+			qlines.append("[R] refresh / request story beat")
+		4:
+			qlines.append("— HELP · FULL SCHOOL GUIDE —")
+			qlines.append("Coins: %d  ·  Myths: %d  ·  %s" % [
+				GameState.coins(), Journal.myths_owned.size(),
+				"AI ON" if StoryAI.has_key() else "AI off",
+			])
+			var pages: Array = ContentDB.HELP_PAGES
+			var pi: int = clampi(Journal.help_page, 0, maxi(0, pages.size() - 1))
+			Journal.help_page = pi
+			if pages.size() > 0:
+				var pg: Dictionary = pages[pi]
+				qlines.append("Page %d / %d — %s" % [pi + 1, pages.size(), pg.get("title", "")])
+				qlines.append(str(pg.get("body", "")))
+			qlines.append("")
+			qlines.append("[ / ] pages · 1-5 ask · 6-9 buy myth · 0 myth shelf")
+			qlines.append("")
+			qlines.append("— ASK (1–5) —")
+			var qi := 1
+			for qq in ContentDB.HELP_QUESTIONS:
+				qlines.append("[%d] %s" % [qi, qq])
+				qi += 1
+			qlines.append("")
+			qlines.append("— MYTH ARCHIVE (coins) —")
+			var mi := 0
+			for seed in ContentDB.MYTH_SEED:
+				if mi >= 4:
+					break
+				var owned: String = "✓" if Journal.owns_myth(str(seed.id)) else "%d¢" % int(seed.cost)
+				qlines.append("[%d] %s · %s" % [6 + mi, seed.title, owned])
+				mi += 1
+			qlines.append("")
+			qlines.append("— HELP LOG —")
+			qlines.append(Journal.help_log_text(3))
+			if not Journal.myths_owned.is_empty():
+				qlines.append("— YOUR MYTHS —")
+				qlines.append(Journal.myths_text())
+		5:
 			qlines.append("— SAVE SLOTS (3) —")
 			for s in range(1, GameState.SAVE_SLOTS + 1):
 				var peek: Dictionary = GameState.peek_save(s)
@@ -1230,11 +1344,11 @@ func _fill_menu() -> void:
 					])
 			qlines.append("")
 			qlines.append("[1/2/3] select slot   [S] save here   [L] load selected")
-			qlines.append("Active write slot: %d" % GameState.active_slot)
+			qlines.append("Active write slot: %d · journal saves with you" % GameState.active_slot)
 		_:
 			qlines.append("(tab)")
 	qlines.append("")
-	qlines.append("Esc close · ← → or Q/B/C/V tabs")
+	qlines.append("Esc close · ← → tabs · H help · Y story")
 	body.text = "\n".join(qlines)
 
 
@@ -1263,7 +1377,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		var code: int = event.physical_keycode
 		# mart mode
-		if _mart_open or _menu_tab == 4:
+		if _mart_open or _menu_tab == 10:
 			match code:
 				KEY_1:
 					_buy_mart(0)
@@ -1277,7 +1391,7 @@ func _input(event: InputEvent) -> void:
 					_close_mart()
 			return
 		# shrine travel
-		if _travel_open or _menu_tab == 5:
+		if _travel_open or _menu_tab == 11:
 			match code:
 				KEY_0:
 					Atmosphere.time_of_day = 0.22  # dawn
@@ -1300,29 +1414,42 @@ func _input(event: InputEvent) -> void:
 				KEY_ESCAPE:
 					_close_travel()
 			return
-		if _map_open or _menu_tab == 6:
+		if _map_open or _menu_tab == 12:
 			if code == KEY_ESCAPE or code == KEY_N:
 				_toggle_world_map()
 			return
-		# tab switch
+		# tab switch (6 main tabs)
 		match code:
-			KEY_LEFT, KEY_Q:
-				_menu_tab = (_menu_tab - 1 + 4) % 4
+			KEY_LEFT:
+				_menu_tab = (_menu_tab - 1 + 6) % 6
 				_fill_menu()
 				return
-			KEY_RIGHT, KEY_B:
-				if code == KEY_B:
-					_menu_tab = 1
-				else:
-					_menu_tab = (_menu_tab + 1) % 4
+			KEY_RIGHT:
+				_menu_tab = (_menu_tab + 1) % 6
+				_fill_menu()
+				return
+			KEY_Q:
+				_menu_tab = 0
+				_fill_menu()
+				return
+			KEY_B:
+				_menu_tab = 1
 				_fill_menu()
 				return
 			KEY_C:
 				_menu_tab = 2
 				_fill_menu()
 				return
-			KEY_V:
+			KEY_Y:
 				_menu_tab = 3
+				_fill_menu()
+				return
+			KEY_H:
+				_menu_tab = 4
+				_fill_menu()
+				return
+			KEY_V:
+				_menu_tab = 5
 				_fill_menu()
 				return
 		if _menu_tab == 1:
@@ -1340,6 +1467,63 @@ func _input(event: InputEvent) -> void:
 					_fill_menu()
 					_refresh_hud()
 		elif _menu_tab == 3:
+			# Story
+			if code == KEY_R:
+				Journal.try_story_triggers()
+				if StoryAI.has_api() and not StoryAI._busy:
+					# Force a companion reflection if no new beat
+					StoryAI.request_story_chapter(
+						"reflect_%s" % GameState.area_id,
+						"Reflect on where the seeker stands now in the School.",
+						StoryAI.build_context()
+					)
+				_fill_menu()
+				_refresh_hud()
+		elif _menu_tab == 4:
+			# Help pages + ask + myths
+			match code:
+				KEY_BRACKETLEFT, KEY_COMMA:
+					Journal.help_page = maxi(0, Journal.help_page - 1)
+					_fill_menu()
+				KEY_BRACKETRIGHT, KEY_PERIOD:
+					Journal.help_page = mini(ContentDB.HELP_PAGES.size() - 1, Journal.help_page + 1)
+					_fill_menu()
+				KEY_1:
+					Journal.ask_help(0)
+					_fill_menu()
+				KEY_2:
+					Journal.ask_help(1)
+					_fill_menu()
+				KEY_3:
+					Journal.ask_help(2)
+					_fill_menu()
+				KEY_4:
+					Journal.ask_help(3)
+					_fill_menu()
+				KEY_5:
+					Journal.ask_help(4)
+					_fill_menu()
+				KEY_6:
+					Journal.buy_myth(0)
+					_fill_menu()
+					_refresh_hud()
+				KEY_7:
+					Journal.buy_myth(1)
+					_fill_menu()
+					_refresh_hud()
+				KEY_8:
+					Journal.buy_myth(2)
+					_fill_menu()
+					_refresh_hud()
+				KEY_9:
+					Journal.buy_myth(3)
+					_fill_menu()
+					_refresh_hud()
+				KEY_0:
+					GameState.toast.emit("Myths in chronicle (Story tab) + Help shelf.")
+					_menu_tab = 3
+					_fill_menu()
+		elif _menu_tab == 5:
 			match code:
 				KEY_1:
 					GameState.active_slot = 1
@@ -1360,30 +1544,6 @@ func _input(event: InputEvent) -> void:
 						_fill_menu()
 						_refresh_hud()
 						SFX.save_ok()
-		else:
-			match code:
-				KEY_1:
-					GameState.use_consumable("bread")
-					_fill_menu()
-					_refresh_hud()
-				KEY_2:
-					GameState.use_consumable("elixir")
-					_fill_menu()
-					_refresh_hud()
-				KEY_3:
-					GameState.use_consumable("repel_dust")
-					_fill_menu()
-					_refresh_hud()
-				KEY_S:
-					GameState.save_game()
-					SFX.save_ok()
-					_fill_menu()
-				KEY_L:
-					if GameState.load_game():
-						load_area(GameState.area_id, GameState.pos)
-						_fill_menu()
-						_refresh_hud()
-						SFX.save_ok()
 
 
 func _on_toast(msg: String) -> void:
@@ -1395,11 +1555,11 @@ func _on_toast(msg: String) -> void:
 
 func _refresh_hud() -> void:
 	var shards := int(GameState.inventory.get("glyph_shard", 0))
-	hp_label.text = "❤ %d/%d   Lv%d %s   ⟡%d" % [
+	hp_label.text = "❤ %d/%d  Lv%d %s  ¢%d" % [
 		GameState.hp, GameState.max_hp, GameState.level, GameState.archetype, shards
 	]
 	area_label.text = str(area.get("name", GameState.area_id))
-	companion_label.text = "%s %s: \"%s\"  [P] switch" % [
+	companion_label.text = "%s %s: \"%s\"  [T] talk [P] switch" % [
 		GameState.companion_glyph(), GameState.companion_name(), GameState.companion_line
 	]
 	if _quest_label:

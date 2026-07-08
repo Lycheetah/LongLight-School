@@ -116,6 +116,7 @@ func new_game(arch: String, seeker: String = "Seeker") -> void:
 	flags_changed.emit()
 	inventory_changed.emit()
 	hp_changed.emit()
+	Journal.clear_run()
 
 
 func get_stat_block() -> Dictionary:
@@ -254,6 +255,7 @@ func set_flag(key: String, val = true) -> void:
 	if key == "half_made_down" and val:
 		unlock_companion("luna")
 	_check_quests()
+	Journal.try_story_triggers()
 
 
 func has_flag(key: String) -> bool:
@@ -449,6 +451,7 @@ func save_game(slot: int = -1) -> void:
 		"battles_fled": battles_fled,
 		"steps_taken": steps_taken,
 		"areas_visited": areas_visited,
+		"journal": Journal.to_save(),
 	}
 	var path := slot_path(slot)
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -506,6 +509,7 @@ func load_game(slot: int = -1) -> bool:
 	battles_fled = int(data.get("battles_fled", 0))
 	steps_taken = int(data.get("steps_taken", 0))
 	areas_visited.assign(data.get("areas_visited", []))
+	Journal.from_save(data.get("journal", {}))
 	flags_changed.emit()
 	inventory_changed.emit()
 	hp_changed.emit()
@@ -543,7 +547,16 @@ func peek_save(slot: int) -> Dictionary:
 
 
 func spend_shards(n: int) -> bool:
-	var have := int(inventory.get("glyph_shard", 0))
+	return spend_coins(n)
+
+
+func coins() -> int:
+	## School Coins == glyph_shard (one currency, two names)
+	return int(inventory.get("glyph_shard", 0))
+
+
+func spend_coins(n: int) -> bool:
+	var have: int = coins()
 	if have < n:
 		return false
 	inventory["glyph_shard"] = have - n
@@ -551,3 +564,14 @@ func spend_shards(n: int) -> bool:
 		inventory.erase("glyph_shard")
 	inventory_changed.emit()
 	return true
+
+
+func earn_coins(n: int, reason: String = "") -> void:
+	if n <= 0:
+		return
+	inventory["glyph_shard"] = coins() + n
+	inventory_changed.emit()
+	if reason != "":
+		toast.emit("+%d coins — %s" % [n, reason])
+	else:
+		toast.emit("+%d School Coins" % n)

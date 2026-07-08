@@ -61,7 +61,14 @@ On this machine the session binary lives next to the project:
 | **WASD / Arrows** | Grid step (Pokémon-style) |
 | **Shift** | Faster steps (run) |
 | **E / Enter** | Talk · dig · open · buy · confirm |
-| **Esc / M** | Menu tabs: Quests · Bag · Codex · Save |
+| **Esc / M** | Full menu: Quests · Bag · Codex · Story · Help · Save |
+| **Enter / Esc** | Continue dialogue · Exit talk |
+| **T** | Talk to active companion |
+| **Y / H** | Story / Help tabs |
+| **Help 1–5** | Ask the School (AI if key, else offline) |
+| **Help 6–9** | Buy myths with School Coins |
+| **[ ]** | Help guide pages |
+| **Coins ¢** | From battles & digs (glyph shards) |
 | **← → / Q B C V** | Switch menu tabs |
 | **S / L** | Save / Load active slot (Save tab: pick 1–3) |
 | **Title L** | Load screen — 3 file slots |
