@@ -1,0 +1,19 @@
+# Godot 4
+.godot/
+*.translation
+export_presets.cfg
+export/
+*.import
+!icon.svg.import
+
+# OS / editor
+.DS_Store
+*~
+*.swp
+.vscode/
+.idea/
+
+# Local only
+*.log
+user://
+.import/
