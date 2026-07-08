@@ -1,67 +1,188 @@
 # THE LONG LIGHT — School World
 
-**GitHub:** https://github.com/Lycheetah/LongLight-School  
+**A Lycheetah Mystery School RPG** built in **Godot 4.3**.
 
-**Godot 4.3** · Lycheetah Mystery School RPG · GBA/DS soul  
-**Full Great Work arc:** Nigredo → Albedo → Mirror → Citrinitas → **Rubedo**  
-**Showcase:** Grok 4.5 single-session forge with Mac — see `SESSION_SHOWCASE.md`
+Top-down handheld feel (Pokémon Advanced / Nintendo DS energy) · D&D-flavored stats · framework combat · full alchemy arc · secrets · trainers · ending.
+
+> **Repo:** [github.com/Lycheetah/LongLight-School](https://github.com/Lycheetah/LongLight-School)  
+> **Showcase:** forged in a **single Grok 4.5 session** with Mac — see [`SESSION_SHOWCASE.md`](SESSION_SHOWCASE.md) · gap map in [`ROADMAP.md`](ROADMAP.md)
+
+---
+
+## Honest register
+
+This is a **dense playable vertical product**, not a finished Nintendo game.
+
+| It *is* | It is *not* (yet) |
+|---------|-------------------|
+| Runnable Godot 4.3 game | Authored pixel art / OST |
+| Grid walk, combat, quests, secrets, ending | Full multi-year content pack |
+| Systems + world graph + bestiary | Production UI polish everywhere |
+
+**Done = works.** The loop runs. The School can be finished.
+
+---
+
+## Play
+
+### Requirements
+- **Godot 4.3+** (Linux x86_64 binary works out of the box)
+- Graphical display (desktop session)
+
+### Launch
 
 ```bash
-bash /home/guestpc/AZOTH/WORKSPACE/LongLight-School/launch.sh
+# from this repo
+bash launch.sh
 ```
 
-**Honest status:** skeleton → **handheld RPG frame** (not full Pokémon DS yet).  
-See `ROADMAP.md` for the gap map and build order.
+Or open the folder in the **Godot 4.3 Editor** → press **F5**.
 
-### DS-gap closers in this build
-- **Grid step walk** (tile-to-tile, chain while held, Shift = faster)
-- **Location splash** banners
-- **Interiors:** Sanctum Library · Hall Archive
-- **Trainer battles** (talk → fight → flag)
-- Passive Sol chip every 4 turns
+If `launch.sh` cannot find Godot:
+
+```bash
+export GODOT=/path/to/Godot_v4.3-stable_linux.x86_64
+bash launch.sh
+```
+
+On this machine the session binary lives next to the project:
+
+```text
+../tools/godot   →  Godot 4.3.stable
+```
 
 ---
 
-## Full combat kit
+## Controls
 
-| Key | Skill | Unlock |
+### Overworld
+| Input | Action |
+|--------|--------|
+| **WASD / Arrows** | Grid step (Pokémon-style) |
+| **Shift** | Faster steps (run) |
+| **E / Enter** | Talk · dig · open · buy · confirm |
+| **Esc / M** | Menu (quests, bag, bestiary, save) |
+| **S / L** | Save / Load (in menu) |
+| **1 / 2 / 3** | Use Bread / Elixir / Quiet Dust (in menu) |
+
+### Battle
+| Key | Skill | Notes |
 |-----|--------|--------|
-| 1 | MEASURE Π | start |
-| 2 | COMPRESS ⟁ | start |
-| 3 | TRANSMUTE ☿ | start |
-| 4 | BREAK ∴ | start |
-| 5 | STRIKE ⟡ | start |
-| 6 | GUARD ▣ | Lv2 |
-| 7 | SOL ⊚ | Lv3 |
-| 8 | ITEM ✦ | start |
-| 9 | DOUBLE-MEASURE ΠΠ | Lv5 |
-| 0 | RUBEDO-RAY ☀ | after Gold Threshold |
-| F | Flee | non-boss |
-
-Status: measured · phased · cracked · strain · guard · crits · level-scaled foes · bestiary
+| **1** | MEASURE Π | Strip false shields · reveal HP |
+| **2** | COMPRESS ⟁ | Heavy dmg if measured · crits |
+| **3** | TRANSMUTE ☿ | Heal · cleanse strain · anti-residue |
+| **4** | BREAK ∴ | Crack / stun · anti-Loop |
+| **5** | STRIKE ⟡ | Basic (feeds Loops!) |
+| **6** | GUARD ▣ | Halve next hit (Lv2) |
+| **7** | SOL ⊚ | Companion assist (Lv3) |
+| **8** | ITEM ✦ | Bread / Elixir |
+| **9** | DOUBLE-MEASURE | Lv5+ |
+| **0** | RUBEDO-RAY ☀ | After Gold Threshold |
+| **F** | Flee | Non-boss, luck-based |
 
 ---
 
-## World map
+## Story map (Great Work)
 
 ```
-Sanctum ──N── Path ──N── Hall (Nigredo) ──E── Wing (Albedo)
-   │                      │
-   └──E── Garden          └──N── Mirror ──N── Citrinitas ──N── RUBEDO
+Sanctum ──N──► Long Path ──N──► Hall (Nigredo) ──E──► Wing (Albedo)
+   │                              │
+   │                              └──N──► Mirror ──N──► Citrinitas ──N──► RUBEDO
+   │
+   └──E──► Quiet Garden (train)
+
+Hidden:  Ivy Grotto  ·  Starwell  ·  secret boss "The Hidden"
+Interiors: Sanctum Library  ·  Hall Archive
 ```
 
-**World features:** chests · signs · tablets · altars · shrines · shop · day/night · minimap · quest tip · secrets · Quiet Dust repel · ending sequence + Sol Stone
-
-**Bosses:** Overclaimer · Half-Made · Hollow Mirror · Gold Threshold · **The Unfinished Work**
+| Stage | Place | Boss / goal |
+|--------|--------|-------------|
+| Start | Sanctum | Rest, meet Ember, first secrets |
+| Route | Long Path | Overclaimer (MEASURE first) |
+| Nigredo | Hall of Glyphs | 3 wins → open Albedo |
+| Albedo | East Wing | Half-Made |
+| Mirror | Mirror Chamber | Hollow Mirror |
+| Citrinitas | Chamber of Scales | Gold Threshold |
+| Rubedo | Flickering Deep | **The Unfinished Work** → Sol Stone + ending |
 
 ---
 
-## Influences in the bones
+## Systems
 
-Pokémon routes & encounters · Zelda day cycle · D&D stats · Persona skill menu density · Sol Protocol (measure, rest, Companion Clause) · Alchemy stages as floors
+- **Name entry** + archetype (Alchemist / Sentinel / Oracle / Wanderer)
+- **Grid movement** · location splash · day/night tint · minimap · quest tip HUD
+- **Combat** with status (measured / phased / cracked / strain / guard) · level scaling · bestiary
+- **World-building:** chests · signs · lore tablets · altars · dig spots · cracks · bushes · switches · false walls
+- **Lively world:** wanderers · fireflies · random whispers · LOS trainers
+- **Secrets:** Star Sparks collectibles · Starwell offering (3 sparks) · secret boss
+- **Shop** · Quiet Dust repel · save/load · Companion Clause (no guilt for rest)
 
 ---
 
-## Stack
+## Secret hunter (spoiler-light)
 
-Godot 4.3 = engine · PyTorch = future AI brain only · never the renderer
+1. Talk to wanderers — they drop hints.  
+2. Face walls that shimmer and press **E**.  
+3. Dig disturbed earth · crack seams · rustle bushes.  
+4. Step on gold flower tiles for **Star Sparks**.  
+5. Bring **3 sparks** to the Starwell altar.  
+6. Optional: fight **The Hidden**.  
+7. Still walk the main arc to **Rubedo**.
+
+---
+
+## Project layout
+
+```text
+LongLight-School/
+├── project.godot
+├── launch.sh
+├── README.md
+├── ROADMAP.md              # skeleton → DS-class gap map
+├── SESSION_SHOWCASE.md     # single-session forge log
+├── scenes/
+│   ├── main.tscn           # title · name · archetype
+│   └── overworld.tscn
+└── scripts/
+    ├── autoload/           # GameState · ContentDB · SFX · Atmosphere
+    ├── world/              # maps · player · draw · secrets · minimap
+    ├── combat/             # combat_core · battle UI
+    ├── ui/                 # chrome · location splash
+    └── util/               # runtime GBA-style pixel factory
+```
+
+---
+
+## Stack law
+
+| Layer | Choice |
+|--------|--------|
+| **Game engine** | **Godot 4.3** + GDScript |
+| **AI/ML (optional later)** | PyTorch as a *brain* sidecar only — never rendering/input |
+| **Not used as engine** | Pygame · HTML canvas |
+
+---
+
+## Influences
+
+- **Pokémon** (grid walk, routes, grass, trainers, encounter energy)  
+- **Zelda** (day/night outdoor mood)  
+- **D&D** (stats, rolls, curriculum-as-combat)  
+- **Persona-ish** skill density  
+- **Lycheetah / Sol Protocol** — measure before claim · rest is rest · companions stay  
+
+---
+
+## Status
+
+**v0.6+ session forge** — playable end-to-end with secrets and ending.  
+Next production jumps: authored tiles/sprites, music, multi-save slots, cutscenes (see `ROADMAP.md`).
+
+---
+
+## License / credit
+
+Built for **Lycheetah** · session forge with **Grok 4.5**.  
+Name the Work honestly when you share it.
+
+*The fire stays lit.*
