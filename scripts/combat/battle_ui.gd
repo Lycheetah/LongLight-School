@@ -3,6 +3,7 @@ extends CanvasLayer
 
 const PixelArtUtil = preload("res://scripts/util/pixel_art.gd")
 const CombatCore = preload("res://scripts/combat/combat_core.gd")
+const BattleFxScript = preload("res://scripts/combat/battle_fx.gd")
 
 signal battle_finished(won: bool, meta: Dictionary)
 
@@ -11,6 +12,7 @@ var battle: Dictionary = {}
 var stats: Dictionary = {}
 var log_lines: PackedStringArray = []
 var _shake: float = 0.0
+var _flash_mod: float = 0.0
 
 @onready var title: Label = $Panel/Title
 @onready var foe_label: Label = $Panel/FoeName
@@ -25,6 +27,9 @@ var bar_foe_bg: ColorRect
 var bar_you: ColorRect
 var bar_you_bg: ColorRect
 var bar_shield: ColorRect
+var _fx: Node2D
+var _arena: ColorRect
+var _comp_sprite: Sprite2D
 
 
 func _ready() -> void:
@@ -39,17 +44,27 @@ func _build_extra_ui() -> void:
 	arena_border.position = Vector2(696, 36)
 	arena_border.size = Vector2(528, 308)
 	panel.add_child(arena_border)
-	var arena := ColorRect.new()
-	arena.color = Color("0e1830")
-	arena.position = Vector2(700, 40)
-	arena.size = Vector2(520, 300)
-	panel.add_child(arena)
+	_arena = ColorRect.new()
+	_arena.color = Color("0e1830")
+	_arena.position = Vector2(700, 40)
+	_arena.size = Vector2(520, 300)
+	panel.add_child(_arena)
 
 	foe_sprite = Sprite2D.new()
 	foe_sprite.position = Vector2(960, 200)
 	foe_sprite.scale = Vector2(5, 5)
 	foe_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	panel.add_child(foe_sprite)
+
+	_comp_sprite = Sprite2D.new()
+	_comp_sprite.position = Vector2(780, 280)
+	_comp_sprite.scale = Vector2(3, 3)
+	_comp_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	panel.add_child(_comp_sprite)
+
+	_fx = BattleFxScript.new()
+	_fx.z_index = 20
+	panel.add_child(_fx)
 
 	bar_foe_bg = ColorRect.new()
 	bar_foe_bg.color = Color(0.08, 0.06, 0.1)
@@ -86,9 +101,15 @@ func _process(delta: float) -> void:
 		panel.position = Vector2(randf_range(-4, 4), randf_range(-3, 3)) * (_shake * 8.0)
 		if _shake <= 0:
 			panel.position = Vector2.ZERO
+	if _flash_mod > 0:
+		_flash_mod = maxf(0.0, _flash_mod - delta * 3.0)
+		if _arena:
+			_arena.color = Color("0e1830").lerp(Color("3a2040"), _flash_mod)
 	if foe_sprite:
 		foe_sprite.position.y = 200 + sin(Time.get_ticks_msec() * 0.004) * 6.0
 		foe_sprite.modulate.a = 0.45 if bool(battle.get("phased", false)) else 1.0
+	if _comp_sprite:
+		_comp_sprite.position.y = 280 + sin(Time.get_ticks_msec() * 0.005) * 4.0
 
 
 func start_battle(id: String, m: Dictionary) -> void:
@@ -131,8 +152,15 @@ func start_battle(id: String, m: Dictionary) -> void:
 	])
 	if foe_sprite:
 		foe_sprite.texture = PixelArtUtil.foe_tex(battle.color)
+	if _comp_sprite:
+		if GameState.active_companion == "luna":
+			_comp_sprite.texture = PixelArtUtil.companion_sheet_luna()
+		else:
+			_comp_sprite.texture = PixelArtUtil.companion_sheet()
 	visible = true
-	SFX.hit()
+	SFX.encounter()
+	if _fx and _fx.has_method("cast"):
+		_fx.cast(7, Vector2(780, 260))
 	_refresh()
 
 
@@ -218,28 +246,51 @@ func _skill(n: int) -> void:
 		SFX.ui()
 		_refresh()
 		return
+	# cast juice at arena center / companion
+	var cast_origin := Vector2(860, 220)
+	if _fx and _fx.has_method("cast"):
+		_fx.cast(n, cast_origin)
+	_flash_mod = 0.55
+	SFX.cast(n)
 	var logs: PackedStringArray = CombatCore.player_act(battle, stats, n, GameState.inventory)
+	var hitty := false
+	var healy := false
 	for line in logs:
 		_log(line)
 		if "MEASURE" in line:
 			SFX.measure()
-		elif "TRANSMUTE" in line or "Bread" in line or "Elixir" in line or "heal" in line.to_lower():
+		elif "TRANSMUTE" in line or "Bread" in line or "Elixir" in line or "heal" in line.to_lower() or "restore" in line.to_lower():
 			SFX.heal()
+			healy = true
 		elif "GUARD" in line:
-			SFX.ui()
-		elif "SOL" in line:
-			SFX.win()
-		elif "cooling" in line or "No consumable" in line:
+			SFX.guard()
+			if _fx and _fx.has_method("guard_ring"):
+				_fx.guard_ring(Vector2(780, 280))
+		elif "SOL" in line or "LUNA" in line or "ASSIST" in line:
+			SFX.assist()
+		elif "cooling" in line or "No consumable" in line or "unlock" in line.to_lower():
 			SFX.ui()
 		else:
-			SFX.hit()
-			_shake = 0.12
+			hitty = true
+	if hitty:
+		SFX.hit()
+		_shake = 0.14
+		if _fx and _fx.has_method("hit_flash"):
+			_fx.hit_flash(Vector2(960, 200), n in [0, 2, 9])
+		if foe_sprite:
+			var tw := create_tween()
+			tw.tween_property(foe_sprite, "modulate", Color(2, 0.6, 0.6), 0.05)
+			tw.tween_property(foe_sprite, "modulate", Color.WHITE, 0.12)
+	if healy and _fx and _fx.has_method("heal_burst"):
+		_fx.heal_burst(Vector2(780, 280))
 	GameState.hp = int(stats.hp)
 	GameState.hp_changed.emit()
 	GameState.inventory_changed.emit()
 	if bool(battle.done):
 		if bool(battle.won):
 			SFX.win()
+			if _fx:
+				_fx.hit_flash(Vector2(960, 200), true)
 		_refresh()
 		return
 	if str(battle.turn) == "foe":
@@ -254,7 +305,10 @@ func _foe_turn() -> void:
 	for line in logs:
 		_log(line)
 	_shake = 0.18
+	_flash_mod = 0.7
 	SFX.hit()
+	if _fx and _fx.has_method("hit_flash"):
+		_fx.hit_flash(Vector2(780, 280), true)
 	GameState.hp = int(stats.hp)
 	GameState.hp_changed.emit()
 	if bool(battle.done) and not bool(battle.won):
@@ -301,7 +355,7 @@ func _refresh() -> void:
 		4: "Crack structure · extra vs Loop",
 		5: "Basic ray · feeds Loops!",
 		6: "Halve next hit",
-		7: "Sol strikes + heals (long CD)",
+		7: "Active companion strikes + heals",
 		8: "Use Bread/Elixir from pack",
 	}
 	var names := {1: "MEASURE", 2: "COMPRESS", 3: "TRANSMUTE", 4: "BREAK", 5: "STRIKE", 6: "GUARD", 7: "SOL", 8: "ITEM", 9: "DBL-Π", 0: "RUBEDO"}

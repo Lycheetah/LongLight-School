@@ -213,6 +213,17 @@ const COMPANION_LINES := [
 	"Rubedo is not an ending. It is operating from completion.",
 ]
 
+const LUNA_LINES := [
+	"Cool measure. Clear form.",
+	"I do not scold absence.",
+	"The hollow is a teacher if you look.",
+	"Whitening is structure, not performance.",
+	"I'll hold the quiet with you.",
+	"Strain is not sin. Rest is valid.",
+	"Mirror first. Then gold.",
+	"◈ Present.",
+]
+
 const AREA_NAMES := {
 	"sanctum": "Sanctum Grounds",
 	"path": "The Long Path",

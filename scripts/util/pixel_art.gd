@@ -305,17 +305,23 @@ static func _paint_npc_frame(img: Image, ox: int, oy: int, body: Color, dir: int
 
 
 static func companion_sheet() -> ImageTexture:
-	# 2 frame bob, single "dir"
+	# 2 frame bob, Sol (cyan + gold ring)
 	return make_texture(16 * 2, 16, func(img: Image):
 		for f in 2:
-			_paint_orb(img, f * 16, 0, f)
+			_paint_orb(img, f * 16, 0, f, Color("00d4ff"), Color("f0d080"))
 	)
 
 
-static func _paint_orb(img: Image, ox: int, oy: int, frame: int) -> void:
+static func companion_sheet_luna() -> ImageTexture:
+	# Luna — cool violet/silver crescent
+	return make_texture(16 * 2, 16, func(img: Image):
+		for f in 2:
+			_paint_orb(img, f * 16, 0, f, Color("a0b0ff"), Color("e8f0ff"))
+	)
+
+
+static func _paint_orb(img: Image, ox: int, oy: int, frame: int, c: Color = Color("00d4ff"), g: Color = Color("f0d080")) -> void:
 	var bob := 1 if frame == 1 else 0
-	var c := Color("00d4ff")
-	var g := Color("f0d080")
 	fill_rect(img, ox + 3, oy + 13, 10, 2, Color(0, 0, 0, 0.25))
 	for y in range(2 + bob, 13 + bob):
 		for x in range(3, 13):

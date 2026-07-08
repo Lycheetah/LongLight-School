@@ -104,6 +104,64 @@ func level_up() -> void:
 		_tone(float(f), 70, 0.09, "sine")
 
 
+func cast(skill: int = 5) -> void:
+	## Per-skill cast chirps (chiptune-ish).
+	match skill:
+		1:  # MEASURE
+			_tone(660, 40, 0.1, "sine")
+			_tone(990, 70, 0.09, "tri")
+		2:  # COMPRESS
+			_tone(220, 50, 0.12, "square")
+			_tone(110, 80, 0.1, "square")
+		3:  # TRANSMUTE
+			_tone(523, 40, 0.09, "sine")
+			_tone(784, 60, 0.09, "sine")
+		4:  # BREAK
+			_tone(160, 40, 0.14, "square")
+			_tone(90, 90, 0.12, "square")
+		5:  # STRIKE
+			_tone(480, 35, 0.1, "tri")
+		6:  # GUARD
+			_tone(400, 50, 0.08, "tri")
+			_tone(500, 50, 0.08, "tri")
+		7:  # ASSIST
+			_tone(587, 40, 0.1, "sine")
+			_tone(880, 70, 0.1, "sine")
+		8:  # ITEM
+			_tone(700, 45, 0.08, "tri")
+		9:  # DBL
+			_tone(660, 30, 0.1, "sine")
+			_tone(880, 30, 0.1, "sine")
+			_tone(1320, 80, 0.09, "tri")
+		0:  # RUBEDO
+			_tone(196, 60, 0.12, "square")
+			_tone(392, 80, 0.11, "sine")
+			_tone(784, 100, 0.1, "sine")
+		_:
+			_tone(500, 40, 0.08, "tri")
+
+
+func guard() -> void:
+	_tone(360, 50, 0.1, "tri")
+	_tone(480, 70, 0.09, "tri")
+
+
+func assist() -> void:
+	for f in [523, 659, 784]:
+		_tone(float(f), 55, 0.09, "sine")
+
+
+func chest() -> void:
+	_tone(440, 40, 0.1, "tri")
+	_tone(660, 50, 0.1, "tri")
+	_tone(880, 70, 0.09, "sine")
+
+
+func secret() -> void:
+	_tone(880, 40, 0.08, "sine")
+	_tone(1175, 80, 0.09, "sine")
+
+
 # Soft ambient pad (call periodically from overworld)
 var _amb_cd: float = 0.0
 

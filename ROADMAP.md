@@ -52,10 +52,10 @@ We do **not** claim parity. We **close the gap system-by-system**, in priority o
 10. Name entry + **3 save slots** ✅  
 
 ### Tier C — “production”
-11. Aseprite tiles + char sheets  
-12. Chiptune OST  
-13. Battle animations (cast FX)  
-14. Second companion + switch  
+11. Aseprite tiles + char sheets — still runtime atlas (honest)  
+12. Chiptune OST — procedural SFX bank expanded (cast/guard/assist/chest/secret)  
+13. Battle animations (cast FX) ✅ glyphs · sparks · hit flash · arena tint  
+14. Second companion + switch ✅ Sol ⊚ / Luna ◈ · [P] · unlock after Half-Made  
 
 ### Tier D — “optional intelligence”
 15. PyTorch sidecar for companion lines / dynamic quests (never the engine)

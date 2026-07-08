@@ -179,8 +179,8 @@ LongLight-School/
 ## Status
 
 **v0.6+ session forge** — playable end-to-end with secrets and ending.  
-Tier B density landed: 3 save slots, bag categories, multi-item mart, Wing Scriptorium, path/Rubedo cutscenes.  
-Next (Tier C): authored tiles/sprites, chiptune OST, battle cast FX (see `ROADMAP.md`).
+Tier B + C slice: 3 saves · bag/mart · Scriptorium · cutscenes · battle cast FX · Sol/Luna party (**P** switch after Albedo).  
+Next: authored Aseprite art, full chiptune OST tracks (see `ROADMAP.md`).
 
 ---
 

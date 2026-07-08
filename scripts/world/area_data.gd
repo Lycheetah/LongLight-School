@@ -295,18 +295,31 @@ static func _path() -> Dictionary:
 			{"x": 10, "y": 10, "foe": "overclaimer", "once": true, "flag": "killed_overclaimer"},
 			{"x": 15, "y": 9, "foe": "fog_imp", "once": false},
 			{"x": 5, "y": 15, "foe": "stasis_mite", "once": false},
+			{"x": 12, "y": 16, "foe": "doubt_moth", "once": false},
+			{"x": 7, "y": 7, "foe": "fog_imp", "once": true},
 		],
-		"wild": ["fog_imp", "stasis_mite", "overclaimer", "fog_imp", "doubt_moth"],
+		"wild": ["fog_imp", "stasis_mite", "overclaimer", "fog_imp", "doubt_moth", "pride_wight"],
 		"chests": [
 			{"x": 16, "y": 17, "loot": ["veras_dust", "glyph_shard"], "hint": "Mossy chest by the pond."},
+			{"x": 4, "y": 18, "loot": ["bread", "repel_dust"], "hint": "Traveler's satchel under roots."},
 		],
 		"signs": [
 			{"x": 10, "y": 3, "lines": [
 				"⟪ LONG PATH ⟫ North: Hall of Glyphs.",
 				"MEASURE false shields. Never punch the lie first.",
 			]},
+			{"x": 11, "y": 14, "lines": [
+				"Side grass = wild ideas. Quiet Dust (mart) calms them.",
+				"[P] switches companions once Luna joins (after Albedo).",
+			]},
 		],
-		"tablets": [],
+		"tablets": [
+			{"x": 6, "y": 10, "lines": [
+				"TABLET OF THE ROUTE",
+				"Between towns: training, secrets, the first hard lesson.",
+				"The Overclaimer is the School's first honest fight.",
+			]},
+		],
 		"false_walls": [
 			{"x": 2, "y": 11, "msg": "Moss peels like a curtain…", "to": "starwell", "tx": 6.5, "ty": 8.5},
 		],

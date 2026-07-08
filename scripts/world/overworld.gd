@@ -153,14 +153,24 @@ func _style_ui() -> void:
 func _setup_companion() -> void:
 	var cs := companion.get_node_or_null("CompSprite") as Sprite2D
 	if cs:
-		_comp_sheet = PixelArtUtil.companion_sheet()
-		cs.texture = _comp_sheet
+		_refresh_companion_sprite()
 		cs.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		cs.region_enabled = true
 		cs.region_rect = Rect2(0, 0, 16, 16)
 		cs.scale = Vector2(2, 2)
 		cs.position = Vector2(0, -6)
 		cs.centered = true
+
+
+func _refresh_companion_sprite() -> void:
+	var cs := companion.get_node_or_null("CompSprite") as Sprite2D
+	if not cs:
+		return
+	if GameState.active_companion == "luna":
+		_comp_sheet = PixelArtUtil.companion_sheet_luna()
+	else:
+		_comp_sheet = PixelArtUtil.companion_sheet()
+	cs.texture = _comp_sheet
 
 
 func load_area(id: String, at: Vector2 = Vector2.ZERO) -> void:
@@ -452,7 +462,7 @@ func _check_collectible_step() -> void:
 		if int(col.x) == tx and int(col.y) == ty:
 			var ck := "col:%s:%d:%d" % [GameState.area_id, tx, ty]
 			if GameState.take_collectible(ck, str(col.id), str(col.get("name", col.id))):
-				SFX.measure()
+				SFX.secret()
 				tiles[ty][tx] = AreaData.T_GRASS if GameState.area_id in ["garden", "sanctum", "path"] else AreaData.T_FLOOR
 				map_draw.queue_redraw()
 			return
@@ -476,6 +486,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("interact"):
 			_advance_dialogue()
 			get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_P:
+		GameState.switch_companion()
+		_refresh_companion_sprite()
+		_refresh_hud()
+		SFX.assist()
+		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("interact"):
 		_interact()
@@ -646,7 +663,7 @@ func _interact() -> void:
 				return
 			var loot: Array = c.get("loot", ["glyph_shard"])
 			if GameState.open_chest(ck, loot):
-				SFX.save_ok()
+				SFX.chest()
 				_open_dialogue("Chest", [str(c.get("hint", "A chest.")), "You take what the School left."])
 				map_draw.queue_redraw()
 			return
@@ -928,6 +945,10 @@ func _fill_menu() -> void:
 				GameState.xp, GameState.xp_next, GameState.hall_wins,
 				GameState.star_sparks, GameState.secrets_found
 			])
+			qlines.append("Party: %s  (unlocked: %s)  [P] switch" % [
+				GameState.companion_name(),
+				", ".join(GameState.companions_unlocked),
+			])
 		1:
 			qlines.append("— BAG · ITEMS —")
 			var consumable_n := 0
@@ -1139,7 +1160,9 @@ func _refresh_hud() -> void:
 		GameState.hp, GameState.max_hp, GameState.level, GameState.archetype, shards
 	]
 	area_label.text = str(area.get("name", GameState.area_id))
-	companion_label.text = "⊚ Sol: \"%s\"" % GameState.companion_line
+	companion_label.text = "%s %s: \"%s\"  [P] switch" % [
+		GameState.companion_glyph(), GameState.companion_name(), GameState.companion_line
+	]
 	if _quest_label:
 		_quest_label.text = "▶ %s   ✧%d sparks · 🔎%d secrets" % [
 			GameState.current_quest_tip(), GameState.star_sparks, GameState.secrets_found

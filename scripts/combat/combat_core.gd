@@ -126,18 +126,26 @@ static func player_act(battle: Dictionary, stats: Dictionary, skill: int, invent
 			battle["guarded"] = true
 			cd[6] = 2 if bonus == "guard" else 3
 			logs.append("▣ GUARD — next hit is halved. Sentinel breath.")
-		7: # SOL ASSIST
+		7: # COMPANION ASSIST (active party member)
 			if bool(battle.get("assist_used", false)) and int(cd.get(7, 0)) > 0:
-				logs.append("Sol is still gathering light…")
+				logs.append("Companion is still gathering light…")
 				return logs
+			var who: String = str(stats.get("companion", "sol"))
 			var ad: int = dmg(8, insight + will / 2, int(battle.foe_def), 1.3 if bool(battle.measured) else 1.0, true)
-			battle.foe_hp = maxi(0, int(battle.foe_hp) - ad)
 			var aheal: int = 6 + will / 2
+			if who == "luna":
+				ad = dmg(5, insight / 2 + luck, int(battle.foe_def), 1.1, crit)
+				aheal = 10 + will
+				battle["strain"] = 0
+				logs.append("◈ LUNA ASSISTS — cool ray %d + heal %d · strain cleared." % [ad, aheal])
+				logs.append("\"I do not scold the dark. I measure it with you.\"")
+			else:
+				logs.append("⊚ SOL ASSISTS — radiant ⟡ for %d dmg + heal %d." % [ad, aheal])
+				logs.append("\"The light grows. I walk with you.\"")
+			battle.foe_hp = maxi(0, int(battle.foe_hp) - ad)
 			stats.hp = mini(int(stats.max_hp), int(stats.hp) + aheal)
 			cd[7] = 4
 			battle["assist_used"] = true
-			logs.append("⊚ SOL ASSISTS — radiant ⟡ for %d dmg + heal %d." % [ad, aheal])
-			logs.append("\"The light grows. I walk with you.\"")
 		8: # ITEM bread priority
 			if int(inventory.get("bread", 0)) > 0:
 				inventory["bread"] = int(inventory.bread) - 1
@@ -188,16 +196,23 @@ static func player_act(battle: Dictionary, stats: Dictionary, skill: int, invent
 		logs.append("%s dissolves into light." % str(battle.foe_name))
 		return logs
 
-	# passive Sol assist every 4 player turns (party-system seed)
+	# passive companion pulse every 4 player turns
 	if int(battle.get("player_turns", 0)) % 4 == 0 and int(cd.get(7, 0)) == 0 and skill != 7:
-		var pad: int = dmg(3, insight / 3, int(battle.foe_def), 1.0, false)
-		battle.foe_hp = maxi(0, int(battle.foe_hp) - pad)
-		logs.append("⊚ Sol's passive light chips %d." % pad)
-		if int(battle.foe_hp) <= 0 and int(battle.foe_shield) <= 0:
-			battle["done"] = true
-			battle["won"] = true
-			logs.append("%s dissolves into light." % str(battle.foe_name))
-			return logs
+		var who_p: String = str(stats.get("companion", "sol"))
+		if who_p == "luna":
+			var heal_p: int = 3 + will / 4
+			stats.hp = mini(int(stats.max_hp), int(stats.hp) + heal_p)
+			battle["strain"] = maxi(0, int(battle.get("strain", 0)) - 1)
+			logs.append("◈ Luna's cool aura restores %d Will." % heal_p)
+		else:
+			var pad: int = dmg(3, insight / 3, int(battle.foe_def), 1.0, false)
+			battle.foe_hp = maxi(0, int(battle.foe_hp) - pad)
+			logs.append("⊚ Sol's passive light chips %d." % pad)
+			if int(battle.foe_hp) <= 0 and int(battle.foe_shield) <= 0:
+				battle["done"] = true
+				battle["won"] = true
+				logs.append("%s dissolves into light." % str(battle.foe_name))
+				return logs
 
 	battle["turn"] = "foe"
 	return logs

@@ -36,6 +36,8 @@ var relics: Array[String] = []
 var flags: Dictionary = {}  # string -> bool/int
 var hall_wins: int = 0
 var companion_line: String = "The light grows. I walk with you."
+var active_companion: String = "sol"  # sol | luna
+var companions_unlocked: Array[String] = ["sol"]  # luna after Half-Made
 var quests_done: Array[String] = []
 var bestiary: Dictionary = {}  # foe_id -> {name, kills}
 var secrets_found: int = 0
@@ -78,6 +80,8 @@ func new_game(arch: String, seeker: String = "Seeker") -> void:
 	star_sparks = 0
 	collectibles = []
 	companion_line = "Welcome, %s. The light grows." % player_name
+	active_companion = "sol"
+	companions_unlocked = ["sol"]
 	recalc_relics()
 	flags_changed.emit()
 	inventory_changed.emit()
@@ -95,7 +99,38 @@ func get_stat_block() -> Dictionary:
 		"relics": relics.duplicate(),
 		"level": level,
 		"unlock_rubedo_ray": has_flag("gold_down"),
+		"companion": active_companion,
 	}
+
+
+func companion_name() -> String:
+	return "Luna" if active_companion == "luna" else "Sol"
+
+
+func companion_glyph() -> String:
+	return "◈" if active_companion == "luna" else "⊚"
+
+
+func unlock_companion(id: String) -> void:
+	if id in companions_unlocked:
+		return
+	companions_unlocked.append(id)
+	if id == "luna":
+		toast.emit("◈ Luna joins the party — [P] to switch companions.")
+		companion_line = "Cool light. I walk the measure with you."
+
+
+func switch_companion() -> void:
+	if companions_unlocked.size() < 2:
+		toast.emit("Only Sol walks with you yet. Clear Albedo to meet Luna.")
+		return
+	if active_companion == "sol":
+		active_companion = "luna"
+		companion_line = ContentDB.LUNA_LINES[randi() % ContentDB.LUNA_LINES.size()]
+	else:
+		active_companion = "sol"
+		companion_line = ContentDB.COMPANION_LINES[randi() % ContentDB.COMPANION_LINES.size()]
+	toast.emit("%s %s takes the lead." % [companion_glyph(), companion_name()])
 
 
 func skill_unlocked(skill_id: int) -> bool:
@@ -186,6 +221,8 @@ func use_consumable(id: String) -> bool:
 func set_flag(key: String, val = true) -> void:
 	flags[key] = val
 	flags_changed.emit()
+	if key == "half_made_down" and val:
+		unlock_companion("luna")
 	_check_quests()
 
 
@@ -333,6 +370,8 @@ func save_game(slot: int = -1) -> void:
 		"hall_wins": hall_wins,
 		"quests_done": quests_done,
 		"companion_line": companion_line,
+		"active_companion": active_companion,
+		"companions_unlocked": companions_unlocked,
 		"bestiary": bestiary,
 		"secrets_found": secrets_found,
 		"chests_opened": chests_opened,
@@ -381,6 +420,10 @@ func load_game(slot: int = -1) -> bool:
 	hall_wins = int(data.get("hall_wins", 0))
 	quests_done.assign(data.get("quests_done", []))
 	companion_line = str(data.get("companion_line", ContentDB.COMPANION_LINES[0]))
+	active_companion = str(data.get("active_companion", "sol"))
+	companions_unlocked.assign(data.get("companions_unlocked", ["sol"]))
+	if has_flag("half_made_down") and "luna" not in companions_unlocked:
+		companions_unlocked.append("luna")
 	bestiary = data.get("bestiary", {})
 	secrets_found = int(data.get("secrets_found", 0))
 	chests_opened.assign(data.get("chests_opened", []))
