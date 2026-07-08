@@ -66,6 +66,10 @@ On this machine the session binary lives next to the project:
 | **S / L** | Save / Load active slot (Save tab: pick 1–3) |
 | **Title L** | Load screen — 3 file slots |
 | **Shop 1–4** | Mart catalog buy (after talking to Keeper) |
+| **P** | Switch companion (Sol / Luna after Albedo) |
+| **K** | Field MEASURE — ping nearby secrets |
+| **E on bush** | Field CLEAR |
+| **Shrine** | Heal + register + fast travel network |
 | **1 / 2 / 3** | Use Bread / Elixir / Quiet Dust (in menu) |
 
 ### Battle

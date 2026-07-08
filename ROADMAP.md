@@ -18,17 +18,17 @@ We do **not** claim parity. We **close the gap system-by-system**, in priority o
 | Routes + grass | Paths, garden wilds | partial |
 | Wild encounter + transition | Tall grass + `!` flash | partial |
 | Trainer battles (LOS + talk) | Teachers + Copyist trainer | denser |
-| Party of creatures | Party of companions / assists | thin → expand |
-| Gyms / badges | Alchemy floors + sigils | partial |
-| Pokédex | Bestiary + codex tab | partial |
+| Party of creatures | Sol/Luna switch + dual passives | denser |
+| Gyms / badges | Alchemy floors + **Sigil Case** | denser |
+| Pokédex | Bestiary + codex + sigils | denser |
 | Bag (items/key/TM) | Bag tab: items / currency / relics | **done** |
 | Mart multi-buy | Catalog mart 1–4 keys | **done** |
 | Name entry | Seeker name on new game | **done** |
 | Multi-save slots | **3 slots** title + menu | **done** |
-| Music / SFX bank | Procedural SFX only | thin |
+| Music / SFX bank | Cast bank + battle arpeggio BGM | denser |
 | Authored pixel art | Runtime atlas | thin |
 | Scripted story events | Quest flags | partial |
-| Field moves (Cut/Surf) | Field skills (planned) | none |
+| Field moves (Cut/Surf) | CLEAR bushes · MEASURE sense · shrine travel | **done** |
 | Breeding / contests | **out of scope** | skip |
 | Online | **out of scope** | skip |
 

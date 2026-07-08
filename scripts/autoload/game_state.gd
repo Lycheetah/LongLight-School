@@ -245,10 +245,47 @@ func add_xp(n: int) -> void:
 		if level % 3 == 0:
 			luck += 1
 		toast.emit("✦ Level %d — the Work deepens." % level)
+		_announce_skill_unlocks()
 		if Engine.has_singleton("SFX") or true:
 			if SFX.has_method("level_up"):
 				SFX.level_up()
 	hp_changed.emit()
+
+
+func _announce_skill_unlocks() -> void:
+	if level == 2:
+		toast.emit("▣ GUARD unlocked (key 6).")
+	elif level == 3:
+		toast.emit("⊚ COMPANION ASSIST unlocked (key 7).")
+	elif level == 4:
+		toast.emit("Field CLEAR strengthened — denser bush loot.")
+	elif level == 5:
+		toast.emit("ΠΠ DOUBLE-MEASURE unlocked (key 9).")
+
+
+func register_shrine(area: String) -> void:
+	var key := "shrine_%s" % area
+	if not has_flag(key):
+		set_flag(key, true)
+		toast.emit("Shrine registered — fast travel unlocked for this place.")
+
+
+func shrine_destinations() -> Array:
+	## List of {id, name} for visited shrine areas (excluding current if alone).
+	var out: Array = []
+	for aid in ContentDB.SHRINE_AREAS:
+		if has_flag("shrine_%s" % aid):
+			out.append({"id": aid, "name": str(ContentDB.AREA_NAMES.get(aid, aid))})
+	return out
+
+
+func sigils_earned() -> Array:
+	## Boss/threshold proofs for the codex case.
+	var out: Array = []
+	for s in ContentDB.SIGILS:
+		if has_flag(str(s.flag)):
+			out.append(s)
+	return out
 
 
 func current_quest_tip() -> String:

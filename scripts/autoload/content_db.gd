@@ -195,6 +195,11 @@ const QUESTS := {
 		"steps": ["Enter Rubedo Deep", "Defeat the Unfinished Work"],
 		"flag": "rubedo_complete", "xp": 400, "items": ["sol_stone"],
 	},
+	"q_observatory": {
+		"title": "Night Measure",
+		"steps": ["Press Garden stone eye", "Enter Night Observatory", "Defeat Stargazer"],
+		"flag": "trainer_stargazer", "xp": 90, "items": ["glyph_shard", "elixir"],
+	},
 }
 
 const COMPANION_LINES := [
@@ -236,9 +241,38 @@ const AREA_NAMES := {
 	"sanctum_in": "Sanctum Library",
 	"hall_archive": "Hall Archive",
 	"scriptorium": "Wing Scriptorium",
+	"observatory": "Night Observatory",
 	"grotto": "Ivy Grotto (Hidden)",
 	"starwell": "Starwell (Secret)",
 }
+
+## Areas with shrines that join the travel network when first used
+const SHRINE_AREAS := ["sanctum", "garden", "hall", "wing", "rubedo", "observatory"]
+
+## Spawn points for shrine fast-travel (tile centers)
+const SHRINE_SPAWNS := {
+	"sanctum": Vector2(11.5, 18.5),
+	"garden": Vector2(9.5, 10.5),
+	"hall": Vector2(15.5, 13.5),
+	"wing": Vector2(13.0, 11.0),
+	"rubedo": Vector2(13.5, 12.5),
+	"observatory": Vector2(8.5, 10.5),
+}
+
+const SIGILS := [
+	{"flag": "killed_overclaimer", "name": "Sigil of Measure", "desc": "First Overclaimer felled."},
+	{"flag": "hall_cleared", "name": "Sigil of Nigredo", "desc": "Hall of Glyphs cleared."},
+	{"flag": "half_made_down", "name": "Sigil of Albedo", "desc": "Half-Made completed."},
+	{"flag": "mirror_down", "name": "Sigil of the Hollow", "desc": "Hollow Mirror faced."},
+	{"flag": "gold_down", "name": "Sigil of Gold", "desc": "Gold Threshold held."},
+	{"flag": "rubedo_complete", "name": "Sigil of Rubedo", "desc": "Unfinished Work finished."},
+	{"flag": "starwell_offering", "name": "Sigil of Stars", "desc": "Starwell offering completed."},
+	{"flag": "trainer_kael", "name": "Adept's Mark", "desc": "Defeated Adept Kael."},
+	{"flag": "trainer_rhee", "name": "Drillmaster's Mark", "desc": "Defeated Drillmaster Rhee."},
+	{"flag": "trainer_archivist", "name": "Archive Mark", "desc": "Defeated the Archivist."},
+	{"flag": "trainer_copyist", "name": "Ink Mark", "desc": "Defeated Pale Copyist."},
+	{"flag": "trainer_stargazer", "name": "Star Mark", "desc": "Defeated Observatory Stargazer."},
+]
 
 ## Mart catalog — id, cost in glyph_shards, stock label
 const SHOP_STOCK := [
@@ -288,7 +322,14 @@ const CUTSCENES := {
 
 const ACTIVE_QUEST_ORDER := [
 	"q_arrival", "q_garden", "q_measure", "q_hall", "q_albedo",
-	"q_mirror", "q_citrinitas", "q_rubedo",
+	"q_observatory", "q_mirror", "q_citrinitas", "q_rubedo",
+]
+
+const FIELD_TIPS := [
+	"Field CLEAR: press E on bushes — Lv4+ finds more Veras Dust.",
+	"Field MEASURE: press K near secrets — dig spots and cracks ping.",
+	"Shrines heal and open fast travel once registered.",
+	"Break wall cracks with E — shards of language fall out.",
 ]
 
 const LORE_BLURBS := [

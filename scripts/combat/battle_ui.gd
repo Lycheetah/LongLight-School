@@ -407,6 +407,8 @@ func _finish() -> void:
 			# treat flee as non-death exit
 			GameState.in_battle = false
 			Atmosphere.set_battle_mode(false)
+			if SFX.has_method("set_battle_bgm"):
+				SFX.set_battle_bgm(false)
 			ow.player.can_move = true
 			visible = false
 			# nudge player back

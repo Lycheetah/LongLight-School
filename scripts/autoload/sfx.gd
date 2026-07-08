@@ -164,8 +164,16 @@ func secret() -> void:
 
 # Soft ambient pad (call periodically from overworld)
 var _amb_cd: float = 0.0
+var _battle_bgm: bool = false
+var _battle_cd: float = 0.0
+var _battle_step: int = 0
+const _BATTLE_ARP := [196.0, 247.0, 294.0, 370.0, 294.0, 247.0]
+
 
 func ambient_tick(delta: float) -> void:
+	if _battle_bgm:
+		_battle_tick(delta)
+		return
 	_amb_cd -= delta
 	if _amb_cd > 0.0:
 		return
@@ -176,3 +184,21 @@ func ambient_tick(delta: float) -> void:
 			base = 110.0
 	_tone(base, 400, 0.03, "sine")
 	_tone(base * 1.5, 350, 0.025, "sine")
+
+
+func set_battle_bgm(on: bool) -> void:
+	_battle_bgm = on
+	_battle_cd = 0.0
+	_battle_step = 0
+
+
+func _battle_tick(delta: float) -> void:
+	_battle_cd -= delta
+	if _battle_cd > 0.0:
+		return
+	_battle_cd = 0.22
+	var f: float = _BATTLE_ARP[_battle_step % _BATTLE_ARP.size()]
+	_battle_step += 1
+	_tone(f, 90, 0.045, "square")
+	if _battle_step % 4 == 0:
+		_tone(f * 1.5, 60, 0.03, "tri")

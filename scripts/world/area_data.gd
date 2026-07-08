@@ -62,6 +62,7 @@ static func all_areas() -> Dictionary:
 		"sanctum_in": _sanctum_interior(),
 		"hall_archive": _hall_archive(),
 		"scriptorium": _scriptorium(),
+		"observatory": _observatory(),
 		"grotto": _hidden_grotto(),
 		"starwell": _starwell(),
 	}
@@ -349,6 +350,7 @@ static func _hall() -> Dictionary:
 		m[p[1]][p[0]] = T_WALL
 	_fill(m, 12, 4, 18, 7, T_RUG)
 	m[5][15] = T_ALTAR
+	m[12][15] = T_SHRINE
 	m[h - 2][10] = T_WARP
 	m[h - 2][11] = T_WARP
 	m[10][w - 2] = T_WARP
@@ -556,12 +558,19 @@ static func _garden() -> Dictionary:
 	m[10][1] = T_WARP
 	m[11][1] = T_WARP
 	m[9][9] = T_SHRINE
+	# north path opens after garden stone switch
+	m[1][11] = T_WARP
+	m[1][12] = T_WARP
 	return {
 		"id": "garden", "name": "Quiet Garden", "w": w, "h": h, "tiles": m,
 		"spawn": Vector2(3.5, 10.5),
 		"warps": [
 			{"x": 1, "y": 10, "to": "sanctum", "tx": 32.5, "ty": 12.5},
 			{"x": 1, "y": 11, "to": "sanctum", "tx": 32.5, "ty": 13.5},
+			{"x": 11, "y": 1, "to": "observatory", "tx": 8.5, "ty": 12.5, "need": "garden_stone",
+			 "locked": "A stone eye must open the night path (press the garden switch)."},
+			{"x": 12, "y": 1, "to": "observatory", "tx": 9.0, "ty": 12.5, "need": "garden_stone",
+			 "locked": "The Observatory waits on a pressed eye."},
 		],
 		"npcs": [
 			{
@@ -569,8 +578,9 @@ static func _garden() -> Dictionary:
 				"color": Color(0.3, 0.75, 0.45),
 				"lines": [
 					"Train here. Small ideas sharpen large ones.",
-					"Tall grass = wild encounters. Shrine heals.",
-					"Pokémon had routes. We have gardens of thought.",
+					"Tall grass = wild encounters. Shrine heals + travel.",
+					"Press the stone eye by the shrine — night path north opens.",
+					"Field skills: E on bushes · K to MEASURE nearby secrets.",
 				],
 			},
 		],
@@ -969,6 +979,94 @@ static func _hall_archive() -> Dictionary:
 				"ARCHIVE NOTE",
 				"Trainers in the School are teachers who fight as curriculum.",
 			]},
+		],
+	}
+
+
+static func _observatory() -> Dictionary:
+	var w := 20
+	var h := 18
+	var m := _grid(w, h, T_FLOOR)
+	_border(m)
+	_fill(m, 3, 3, 16, 13, T_FLOOR2)
+	_fill(m, 7, 6, 12, 10, T_RUG)
+	# telescope ring as walls
+	for p in [[6, 5], [13, 5], [6, 11], [13, 11], [9, 4], [10, 4]]:
+		m[p[1]][p[0]] = T_WALL
+	m[7][9] = T_ALTAR
+	m[7][10] = T_ALTAR
+	m[10][9] = T_SHRINE
+	m[h - 2][9] = T_WARP
+	m[h - 2][10] = T_WARP
+	# night glass floor hints
+	_fill(m, 4, 4, 5, 5, T_WATER)
+	_fill(m, 14, 4, 15, 5, T_WATER)
+	return {
+		"id": "observatory", "name": "Night Observatory", "w": w, "h": h, "tiles": m,
+		"spawn": Vector2(9.5, 12.5),
+		"warps": [
+			{"x": 9, "y": h - 2, "to": "garden", "tx": 11.5, "ty": 3.5},
+			{"x": 10, "y": h - 2, "to": "garden", "tx": 12.0, "ty": 3.5},
+		],
+		"npcs": [
+			{
+				"x": 7.5, "y": 9.5, "name": "Lore of Night", "face": "☽",
+				"color": Color(0.65, 0.75, 1.0),
+				"lines": [
+					"The School measures day and night the same: honestly.",
+					"Stars are not omens. They are fixed points you can use.",
+					"Stargazer trains seekers who press the stone eye.",
+				],
+			},
+			{
+				"x": 12.0, "y": 8.5, "name": "Stargazer", "face": "✧",
+				"color": Color(0.95, 0.9, 0.55),
+				"trainer": true,
+				"foe": "void_scholar",
+				"flag": "trainer_stargazer",
+				"lines": [
+					"You found the night path. Good.",
+					"Curriculum: a Void Scholar under glass. Ready?",
+				],
+				"after": ["Catalogued under starlight. Travel well."],
+			},
+		],
+		"spawns": [
+			{"x": 10, "y": 6, "foe": "doubt_moth", "once": false},
+			{"x": 5, "y": 10, "foe": "riddle_wraith", "once": true},
+		],
+		"wild": [],
+		"chests": [
+			{"x": 15, "y": 8, "loot": ["elixir", "repel_dust", "glyph_shard"], "hint": "Observer's drawer."},
+			{"x": 4, "y": 8, "loot": ["star_spark", "lens"], "hint": "Lens cabinet."},
+		],
+		"signs": [
+			{"x": 9, "y": 5, "lines": [
+				"OBSERVATORY",
+				"Register the shrine. Night travel is still travel.",
+			]},
+		],
+		"tablets": [
+			{"x": 11, "y": 5, "lines": [
+				"TABLET OF FIXED POINTS",
+				"A companion does not wilt when you rest.",
+				"Neither does a true measure.",
+			]},
+		],
+		"collectibles": [
+			{"x": 14, "y": 12, "id": "star_spark", "name": "Star Spark"},
+		],
+		"dig_spots": [
+			{"x": 6, "y": 12, "loot": ["glyph_shard", "glyph_shard"], "msg": "Star-dust under the tiles."},
+		],
+		"bushes": [],
+		"cracks": [[3, 7]],
+		"switches": [],
+		"false_walls": [],
+		"wanderers": [
+			{"name": "Glass Moth", "color": Color(0.85, 0.9, 1.0), "lines": [
+				"I eat only false constellations.",
+			], "path": [[8, 7], [12, 7], [12, 11], [8, 11]], "speed": 0.9, "night_only": false},
 		],
 	}
 

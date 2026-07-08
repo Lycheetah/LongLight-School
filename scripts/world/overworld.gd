@@ -58,7 +58,9 @@ var _pending_mart: bool = false
 var _location_splash: CanvasLayer
 var _pending_trainer: Dictionary = {}
 var _pending_cut_battle: Dictionary = {}
-var _menu_tab: int = 0  # 0 quests 1 bag 2 codex 3 save
+var _menu_tab: int = 0  # 0 quests 1 bag 2 codex 3 save 5 travel
+var _travel_open: bool = false
+var _travel_list: Array = []
 
 
 func _ready() -> void:
@@ -341,8 +343,7 @@ func _process(delta: float) -> void:
 		_phase_label.text = "⊙ %s" % Atmosphere.phase_name().capitalize()
 	if _minimap:
 		_minimap.queue_redraw()
-	if not GameState.in_battle:
-		SFX.ambient_tick(delta)
+	SFX.ambient_tick(delta)
 	_update_wanderers(delta)
 	_update_ambient(delta)
 	_secret_toast_cd = maxf(0.0, _secret_toast_cd - delta)
@@ -487,16 +488,72 @@ func _unhandled_input(event: InputEvent) -> void:
 			_advance_dialogue()
 			get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_P:
-		GameState.switch_companion()
-		_refresh_companion_sprite()
-		_refresh_hud()
-		SFX.assist()
-		get_viewport().set_input_as_handled()
-		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.physical_keycode:
+			KEY_P:
+				GameState.switch_companion()
+				_refresh_companion_sprite()
+				_refresh_hud()
+				SFX.assist()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_K:
+				_field_measure()
+				get_viewport().set_input_as_handled()
+				return
 	if event.is_action_pressed("interact"):
 		_interact()
 		get_viewport().set_input_as_handled()
+
+
+func _field_measure() -> void:
+	## Ping nearby digs, cracks, false walls, collectibles within 4 tiles.
+	SFX.measure()
+	var pt := Vector2i(int(player.global_position.x / TILE), int(player.global_position.y / TILE))
+	var hits: PackedStringArray = []
+	for d in dig_spots:
+		var dx := absi(int(d.x) - pt.x) + absi(int(d.y) - pt.y)
+		var dk := "dig:%s:%d:%d" % [GameState.area_id, int(d.x), int(d.y)]
+		if dx <= 4 and not GameState.has_flag(dk):
+			hits.append("disturbed earth (%d,%d)" % [int(d.x), int(d.y)])
+	for fw in false_walls:
+		var d2 := absi(int(fw.x) - pt.x) + absi(int(fw.y) - pt.y)
+		if d2 <= 4:
+			hits.append("hollow wall nearby…")
+	for col in collectibles:
+		var ck := "col:%s:%d:%d" % [GameState.area_id, int(col.x), int(col.y)]
+		var d3 := absi(int(col.x) - pt.x) + absi(int(col.y) - pt.y)
+		if d3 <= 4 and ck not in GameState.collectibles:
+			hits.append("a spark of collectible light")
+	# cracks on tiles
+	for yy in range(maxi(0, pt.y - 3), mini(area_h, pt.y + 4)):
+		for xx in range(maxi(0, pt.x - 3), mini(area_w, pt.x + 4)):
+			if int(tiles[yy][xx]) == AreaData.T_CRACK:
+				hits.append("crack in the structure")
+	if hits.is_empty():
+		GameState.toast.emit("Π Field MEASURE — nothing false nearby.")
+	else:
+		GameState.toast.emit("Π senses: %s" % hits[0])
+		if hits.size() > 1:
+			GameState.companion_line = "More than one secret. Keep scanning."
+			_refresh_hud()
+
+
+func _open_shrine_menu() -> void:
+	_travel_list = GameState.shrine_destinations()
+	if _travel_list.is_empty():
+		_open_dialogue("Shrine", [
+			"Will restored. This shrine is now registered.",
+			"Visit other shrines to weave the travel net.",
+		])
+		return
+	_travel_open = true
+	menu_open = true
+	menu_panel.visible = true
+	player.can_move = false
+	_menu_tab = 5
+	_fill_menu()
+	SFX.ui()
 
 
 func _check_tile_triggers() -> void:
@@ -605,13 +662,20 @@ func _interact() -> void:
 			_open_dialogue("Crack", ["You BREAK the seam.", "A glyph shard falls from the wall."])
 			return
 		if int(tiles[fty][ftx]) == AreaData.T_BUSH:
+			# Field CLEAR — Cut-analogue
 			tiles[fty][ftx] = AreaData.T_GRASS
-			if randf() < 0.35:
+			var p_loot := 0.35 + (0.2 if GameState.level >= 4 else 0.0)
+			if GameState.count_item("veras_dust") > 0 and randf() < 0.15:
+				p_loot += 0.15
+			if randf() < p_loot:
 				GameState.add_item("veras_dust", 1)
-				GameState.toast.emit("Rustle — Veras Dust!")
+				GameState.toast.emit("Field CLEAR — Veras Dust!")
+			elif randf() < 0.12:
+				GameState.add_item("glyph_shard", 1)
+				GameState.toast.emit("Field CLEAR — a shard in the roots!")
 			else:
-				GameState.toast.emit("Just a bush.")
-			SFX.step()
+				GameState.toast.emit("Field CLEAR — bush gone.")
+			SFX.cast(4)
 			map_draw.queue_redraw()
 			return
 	# altar star spark offering (starwell)
@@ -685,7 +749,7 @@ func _interact() -> void:
 			SFX.measure()
 			_open_dialogue("Tablet", t.get("lines", ["…"]))
 			return
-	# shrine underfoot / adjacent
+	# shrine underfoot / adjacent — heal + register + travel
 	for dy in range(-1, 2):
 		for dx in range(-1, 2):
 			var tx := int(player.global_position.x / TILE) + dx
@@ -694,15 +758,24 @@ func _interact() -> void:
 				continue
 			if tiles[ty][tx] == AreaData.T_SHRINE:
 				GameState.heal_full()
+				GameState.register_shrine(GameState.area_id)
 				SFX.heal()
+				_open_shrine_menu()
 				return
 			if tiles[ty][tx] == AreaData.T_ALTAR:
 				_open_dialogue("Altar", [
 					"The altar hums with unspent Π.",
 					"Kneeling here clarifies: rest is valid. Absence is not failure.",
+					ContentDB.FIELD_TIPS[randi() % ContentDB.FIELD_TIPS.size()],
 				])
 				return
-	GameState.toast.emit("… nothing to touch.")
+			if tiles[ty][tx] == AreaData.T_WATER:
+				_open_dialogue("Water", [
+					"Still water. No surf skill in this School — yet.",
+					"Reflection is free. Crossing is not.",
+				])
+				return
+	GameState.toast.emit("… nothing to touch. (K = field MEASURE)")
 
 
 func _talk_trainer(n: Dictionary) -> void:
@@ -801,6 +874,8 @@ func _on_encounter_fx_done() -> void:
 	_pending_battle = {}
 	GameState.in_battle = true
 	Atmosphere.set_battle_mode(true)
+	if SFX.has_method("set_battle_bgm"):
+		SFX.set_battle_bgm(true)
 	battle_layer.visible = true
 	battle_layer.start_battle(foe_id, meta)
 
@@ -812,6 +887,8 @@ func _on_battle_req(foe_id: String, meta: Dictionary) -> void:
 func on_battle_ended(won: bool, meta: Dictionary) -> void:
 	GameState.in_battle = false
 	Atmosphere.set_battle_mode(false)
+	if SFX.has_method("set_battle_bgm"):
+		SFX.set_battle_bgm(false)
 	battle_layer.visible = false
 	player.can_move = true
 	if bool(meta.get("fled", false)):
@@ -881,6 +958,9 @@ func _toggle_menu() -> void:
 	if _mart_open:
 		_close_mart()
 		return
+	if _travel_open:
+		_close_travel()
+		return
 	menu_open = not menu_open
 	menu_panel.visible = menu_open
 	player.can_move = not menu_open and not dialogue_ui.visible
@@ -900,6 +980,31 @@ func _close_mart() -> void:
 	SFX.ui()
 
 
+func _close_travel() -> void:
+	_travel_open = false
+	menu_open = false
+	menu_panel.visible = false
+	player.can_move = not dialogue_ui.visible
+	_menu_tab = 0
+	SFX.ui()
+
+
+func _do_travel(index: int) -> void:
+	if index < 0 or index >= _travel_list.size():
+		return
+	var dest: Dictionary = _travel_list[index]
+	var aid := str(dest.id)
+	if aid == GameState.area_id:
+		GameState.toast.emit("Already here.")
+		_close_travel()
+		return
+	var sp: Vector2 = ContentDB.SHRINE_SPAWNS.get(aid, Vector2(10, 10))
+	_close_travel()
+	SFX.warp()
+	GameState.toast.emit("Shrine-light carries you…")
+	load_area(aid, Vector2(sp.x * TILE, sp.y * TILE))
+
+
 func _fill_menu() -> void:
 	var body: Label = $HUD/MenuPanel/Body
 	var title_n: Label = $HUD/MenuPanel/Title if has_node("HUD/MenuPanel/Title") else null
@@ -917,10 +1022,26 @@ func _fill_menu() -> void:
 		qlines.append("Keys 1–4 buy one · Esc closes mart")
 		body.text = "\n".join(qlines)
 		return
+	if _travel_open or _menu_tab == 5:
+		if title_n:
+			title_n.text = "SHRINE TRAVEL"
+		qlines.append("Will is whole. Choose a registered shrine:")
+		qlines.append("")
+		var ti := 1
+		for d in _travel_list:
+			var here := " ← you" if str(d.id) == GameState.area_id else ""
+			qlines.append("[%d] %s%s" % [ti, d.name, here])
+			ti += 1
+		if _travel_list.is_empty():
+			qlines.append("(none yet — use more shrines)")
+		qlines.append("")
+		qlines.append("1–9 travel · Esc cancel")
+		body.text = "\n".join(qlines)
+		return
 	var tabs := ["QUESTS", "BAG", "CODEX", "SAVE"]
 	if title_n:
 		title_n.text = "MENU · %s  (← → tab)" % tabs[_menu_tab]
-	qlines.append("Tabs: [Q]uests  [B]ag  [C]odex  [V] Save   active slot %d" % GameState.active_slot)
+	qlines.append("Tabs: [Q]uests  [B]ag  [C]odex  [V] Save   slot %d · [P] party · [K] measure" % GameState.active_slot)
 	qlines.append("")
 	match _menu_tab:
 		0:
@@ -986,7 +1107,8 @@ func _fill_menu() -> void:
 			qlines.append("[1] Bread  [2] Elixir  [3] Quiet Dust")
 		2:
 			qlines.append("— CODEX / SKILLS —")
-			qlines.append("1Π 2⟁ 3☿ 4∴ 5⟡ 6▣GUARD 7⊚SOL 8ITEM  F:flee")
+			qlines.append("1Π 2⟁ 3☿ 4∴ 5⟡ 6▣GUARD 7⊚ASSIST 8ITEM  F:flee")
+			qlines.append("Field: E bush CLEAR · K MEASURE sense · shrine travel")
 			if GameState.has_flag("killed_overclaimer"):
 				qlines.append("• Overclaim: MEASURE the shield first.")
 			if GameState.has_flag("half_made_down"):
@@ -997,6 +1119,15 @@ func _fill_menu() -> void:
 				qlines.append("• Gold Threshold: the yellowing held. RUBEDO-RAY open.")
 			if GameState.hall_wins >= 1:
 				qlines.append("• Hall victories: %d / 3 → Albedo." % GameState.hall_wins)
+			qlines.append("")
+			qlines.append("— SIGIL CASE —")
+			var sigs: Array = GameState.sigils_earned()
+			if sigs.is_empty():
+				qlines.append("(no proofs yet — bosses & trainers leave marks)")
+			else:
+				for sg in sigs:
+					qlines.append("◆ %s — %s" % [sg.name, sg.desc])
+			qlines.append("(%d / %d)" % [sigs.size(), ContentDB.SIGILS.size()])
 			qlines.append("")
 			qlines.append("— BESTIARY —")
 			if GameState.bestiary.is_empty():
@@ -1064,6 +1195,24 @@ func _input(event: InputEvent) -> void:
 					_buy_mart(3)
 				KEY_ESCAPE:
 					_close_mart()
+			return
+		# shrine travel
+		if _travel_open or _menu_tab == 5:
+			match code:
+				KEY_1:
+					_do_travel(0)
+				KEY_2:
+					_do_travel(1)
+				KEY_3:
+					_do_travel(2)
+				KEY_4:
+					_do_travel(3)
+				KEY_5:
+					_do_travel(4)
+				KEY_6:
+					_do_travel(5)
+				KEY_ESCAPE:
+					_close_travel()
 			return
 		# tab switch
 		match code:
