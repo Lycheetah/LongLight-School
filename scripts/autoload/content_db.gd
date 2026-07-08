@@ -135,6 +135,21 @@ const FOES := {
 		],
 		"color": Color(0.15, 0.05, 0.25),
 	},
+	"unsaid": {
+		"name": "The Unsaid", "hp": 55, "shield": 8, "atk": 7, "def": 3,
+		"kind": "phase", "xp": 95, "loot": ["glyph_shard", "glyph_shard", "elixir", "candle"],
+		"lines": [
+			"What you never spoke still lives under the Hall.",
+			"MEASURE the silence. COMPRESS the ghost.",
+		],
+		"color": Color(0.25, 0.22, 0.4),
+	},
+	"ash_scribe": {
+		"name": "Ash Scribe", "hp": 28, "shield": 0, "atk": 5, "def": 2,
+		"kind": "residue", "xp": 40, "loot": ["veras_dust", "glyph_shard"],
+		"lines": ["I wrote in soot so no one would read me."],
+		"color": Color(0.35, 0.32, 0.3),
+	},
 }
 
 const ITEMS := {
@@ -200,6 +215,11 @@ const QUESTS := {
 		"steps": ["Press Garden stone eye", "Enter Night Observatory", "Defeat Stargazer"],
 		"flag": "trainer_stargazer", "xp": 90, "items": ["glyph_shard", "elixir"],
 	},
+	"q_crypt": {
+		"title": "What Was Never Said",
+		"steps": ["Find the Hall false wall west", "Enter Crypt of the Unsaid", "Defeat The Unsaid"],
+		"flag": "unsaid_down", "xp": 120, "items": ["glyph_shard", "glyph_shard", "elixir"],
+	},
 }
 
 const COMPANION_LINES := [
@@ -242,6 +262,7 @@ const AREA_NAMES := {
 	"hall_archive": "Hall Archive",
 	"scriptorium": "Wing Scriptorium",
 	"observatory": "Night Observatory",
+	"crypt": "Crypt of the Unsaid",
 	"grotto": "Ivy Grotto (Hidden)",
 	"starwell": "Starwell (Secret)",
 }
@@ -272,6 +293,8 @@ const SIGILS := [
 	{"flag": "trainer_archivist", "name": "Archive Mark", "desc": "Defeated the Archivist."},
 	{"flag": "trainer_copyist", "name": "Ink Mark", "desc": "Defeated Pale Copyist."},
 	{"flag": "trainer_stargazer", "name": "Star Mark", "desc": "Defeated Observatory Stargazer."},
+	{"flag": "unsaid_down", "name": "Sigil of the Unsaid", "desc": "Crypt of silence cleared."},
+	{"flag": "trainer_crypt", "name": "Crypt Mark", "desc": "Defeated Crypt Warden."},
 ]
 
 ## Mart catalog — id, cost in glyph_shards, stock label
@@ -321,9 +344,28 @@ const CUTSCENES := {
 }
 
 const ACTIVE_QUEST_ORDER := [
-	"q_arrival", "q_garden", "q_measure", "q_hall", "q_albedo",
+	"q_arrival", "q_garden", "q_measure", "q_hall", "q_crypt", "q_albedo",
 	"q_observatory", "q_mirror", "q_citrinitas", "q_rubedo",
 ]
+
+## Graph for world map (id -> connections + display cell)
+const WORLD_MAP := {
+	"sanctum": {"cell": Vector2i(1, 2), "links": ["path", "garden", "sanctum_in"]},
+	"path": {"cell": Vector2i(1, 1), "links": ["sanctum", "hall", "starwell"]},
+	"hall": {"cell": Vector2i(1, 0), "links": ["path", "wing", "mirror", "hall_archive", "crypt"]},
+	"wing": {"cell": Vector2i(2, 0), "links": ["hall", "scriptorium", "grotto"]},
+	"mirror": {"cell": Vector2i(1, -1), "links": ["hall", "citrinitas"]},
+	"garden": {"cell": Vector2i(2, 2), "links": ["sanctum", "observatory"]},
+	"citrinitas": {"cell": Vector2i(1, -2), "links": ["mirror", "rubedo"]},
+	"rubedo": {"cell": Vector2i(1, -3), "links": ["citrinitas"]},
+	"observatory": {"cell": Vector2i(3, 2), "links": ["garden"]},
+	"crypt": {"cell": Vector2i(0, 0), "links": ["hall"]},
+	"scriptorium": {"cell": Vector2i(2, -1), "links": ["wing"]},
+	"hall_archive": {"cell": Vector2i(0, 0), "links": ["hall"]},
+	"sanctum_in": {"cell": Vector2i(1, 3), "links": ["sanctum"]},
+	"grotto": {"cell": Vector2i(3, 0), "links": ["wing"]},
+	"starwell": {"cell": Vector2i(0, 1), "links": ["path"]},
+}
 
 const FIELD_TIPS := [
 	"Field CLEAR: press E on bushes — Lv4+ finds more Veras Dust.",

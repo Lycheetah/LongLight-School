@@ -69,7 +69,8 @@ On this machine the session binary lives next to the project:
 | **P** | Switch companion (Sol / Luna after Albedo) |
 | **K** | Field MEASURE — ping nearby secrets |
 | **E on bush** | Field CLEAR |
-| **Shrine** | Heal + register + fast travel network |
+| **Shrine** | Heal + register + fast travel · **0** rest till dawn |
+| **N** | World map + run stats |
 | **1 / 2 / 3** | Use Bread / Elixir / Quiet Dust (in menu) |
 
 ### Battle

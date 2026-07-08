@@ -214,6 +214,7 @@ func _try_flee() -> void:
 		battle.won = false
 		# special: flee win=false but not death
 		meta["fled"] = true
+		GameState.battles_fled += 1
 		SFX.warp()
 		_refresh()
 	else:
@@ -326,14 +327,22 @@ func _refresh() -> void:
 	title.text = "INNER DEMON"
 	var tags := ""
 	if bool(battle.get("measured", false)):
-		tags += "  [MEASURED]"
+		tags += "  ◆MEASURED"
 	if bool(battle.get("phased", false)):
-		tags += "  [PHASED]"
+		tags += "  ◎PHASED"
 	if int(battle.get("broken_turns", 0)) > 0:
-		tags += "  [CRACKED]"
+		tags += "  ∴CRACKED"
 	if int(battle.get("strain", 0)) > 0:
 		tags += "  strain:%d" % int(battle.strain)
+	if bool(battle.get("guarded", false)):
+		tags += "  ▣GUARD"
+	var who: String = str(stats.get("companion", GameState.active_companion))
 	foe_label.text = str(battle.foe_name) + tags
+	if status and not bool(battle.get("done", false)):
+		status.text = "You · %s lead · %s" % [
+			"◈ Luna" if who == "luna" else "⊚ Sol",
+			"Your turn — 1–8 skills" if str(battle.turn) == "player" else "Foe acts…"
+		]
 	var sh := "  · shield %d" % int(battle.foe_shield) if int(battle.foe_shield) > 0 else ""
 	bars.text = "Foe  %d / %d%s\nYou  %d / %d Will" % [
 		int(battle.foe_hp), int(battle.foe_max), sh, GameState.hp, GameState.max_hp
@@ -388,7 +397,9 @@ func _refresh() -> void:
 		else:
 			status.text = "▽ DEFEATED — Enter (Sanctum)"
 	else:
-		status.text = "Your turn — 1–8 skills" if str(battle.turn) == "player" else "…"
+		var lead := "◈ Luna" if who == "luna" else "⊚ Sol"
+		var turn_s := "Your turn — 1–8" if str(battle.turn) == "player" else "Foe acts…"
+		status.text = "%s lead · %s" % [lead, turn_s]
 
 
 func _finish() -> void:

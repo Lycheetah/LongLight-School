@@ -61,6 +61,8 @@ var _pending_cut_battle: Dictionary = {}
 var _menu_tab: int = 0  # 0 quests 1 bag 2 codex 3 save 5 travel
 var _travel_open: bool = false
 var _travel_list: Array = []
+var _map_open: bool = false
+var _los_flash: Dictionary = {}  # {from: Vector2, to: Vector2, t: float}
 
 
 func _ready() -> void:
@@ -198,6 +200,7 @@ func load_area(id: String, at: Vector2 = Vector2.ZERO) -> void:
 	_stamp_secret_tiles()
 	_spawn_ambient()
 	GameState.area_id = id
+	GameState.mark_area_visited(id)
 	if at != Vector2.ZERO:
 		player.global_position = at
 	else:
@@ -347,7 +350,12 @@ func _process(delta: float) -> void:
 	_update_wanderers(delta)
 	_update_ambient(delta)
 	_secret_toast_cd = maxf(0.0, _secret_toast_cd - delta)
-	if GameState.in_battle or menu_open or dialogue_ui.visible:
+	if not _los_flash.is_empty():
+		_los_flash.t = float(_los_flash.t) - delta
+		if float(_los_flash.t) <= 0.0:
+			_los_flash = {}
+		queue_redraw()
+	if GameState.in_battle or menu_open or dialogue_ui.visible or _map_open:
 		return
 	GameState.pos = player.global_position
 	var target: Vector2 = player.global_position - player.facing * 22.0
@@ -356,6 +364,14 @@ func _process(delta: float) -> void:
 	_check_collectible_step()
 	_check_trainer_los()
 	_random_world_event(delta)
+
+
+func _draw() -> void:
+	if _los_flash.is_empty():
+		return
+	var a: float = clampf(float(_los_flash.t) / 0.45, 0.0, 1.0)
+	draw_line(Vector2(_los_flash.from), Vector2(_los_flash.to), Color(1.0, 0.2, 0.15, a), 2.0)
+	draw_circle(Vector2(_los_flash.from), 6.0, Color(1.0, 0.3, 0.1, a))
 
 
 func _update_wanderers(delta: float) -> void:
@@ -448,8 +464,13 @@ func _check_trainer_los() -> void:
 			c += step
 		if not ok:
 			continue
-		# eye contact: player facing trainer or always snag (classic feels aggressive — use always)
-		GameState.toast.emit("%s spots you!" % str(n.name))
+		# eye flash line then snag
+		_los_flash = {
+			"from": Vector2(float(nx) + 0.5, float(ny) + 0.5) * TILE,
+			"to": player.global_position,
+			"t": 0.45,
+		}
+		GameState.toast.emit("! %s spots you!" % str(n.name))
 		SFX.encounter()
 		_pending_trainer = n.duplicate()
 		_open_dialogue(str(n.name), n.get("lines", ["Battle!"]))
@@ -501,6 +522,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_field_measure()
 				get_viewport().set_input_as_handled()
 				return
+			KEY_N:
+				_toggle_world_map()
+				get_viewport().set_input_as_handled()
+				return
 	if event.is_action_pressed("interact"):
 		_interact()
 		get_viewport().set_input_as_handled()
@@ -541,18 +566,27 @@ func _field_measure() -> void:
 
 func _open_shrine_menu() -> void:
 	_travel_list = GameState.shrine_destinations()
-	if _travel_list.is_empty():
-		_open_dialogue("Shrine", [
-			"Will restored. This shrine is now registered.",
-			"Visit other shrines to weave the travel net.",
-		])
-		return
 	_travel_open = true
 	menu_open = true
 	menu_panel.visible = true
 	player.can_move = false
 	_menu_tab = 5
 	_fill_menu()
+	SFX.ui()
+
+
+func _toggle_world_map() -> void:
+	if dialogue_ui.visible or _mart_open or _travel_open:
+		return
+	_map_open = not _map_open
+	menu_open = _map_open
+	menu_panel.visible = _map_open
+	player.can_move = not _map_open
+	if _map_open:
+		_menu_tab = 6
+		_fill_menu()
+	else:
+		_menu_tab = 0
 	SFX.ui()
 
 
@@ -582,15 +616,24 @@ func _check_tile_triggers() -> void:
 	# tall grass wild
 	if t == AreaData.T_TALL and player.moved_this_frame:
 		steps += 1
+		GameState.steps_taken += 1
 		# Quiet Dust repel
 		var repel: int = int(GameState.flags.get("repel_steps", 0))
 		if repel > 0:
 			GameState.flags["repel_steps"] = repel - 1
 			return
-		if steps % 28 == 0:
-			var wild: Array = area.get("wild", [])
+		# night: denser encounters (every ~18 steps vs 28 day)
+		var interval := 18 if Atmosphere.phase_name() in ["night", "late_night", "dusk"] else 28
+		if steps % interval == 0:
+			var wild: Array = area.get("wild", []).duplicate()
 			if wild.size() > 0:
-				_start_battle(str(wild[randi() % wild.size()]), {})
+				# night swaps in tougher ideas sometimes
+				if Atmosphere.phase_name() in ["night", "late_night"] and randf() < 0.35:
+					if ContentDB.FOES.has("pride_wight"):
+						wild.append("pride_wight")
+					if ContentDB.FOES.has("doubt_moth"):
+						wild.append("doubt_moth")
+				_start_battle(str(wild[randi() % wild.size()]), {"wild": true})
 
 
 func _try_warp(w: Dictionary) -> void:
@@ -896,6 +939,7 @@ func on_battle_ended(won: bool, meta: Dictionary) -> void:
 		return
 	if won:
 		SFX.win()
+		GameState.battles_won += 1
 		var key := "%d,%d" % [int(meta.get("x", -1)), int(meta.get("y", -1))]
 		if meta.get("once", true) and int(meta.get("x", -1)) >= 0:
 			spawn_dead[key] = true
@@ -961,6 +1005,14 @@ func _toggle_menu() -> void:
 	if _travel_open:
 		_close_travel()
 		return
+	if _map_open:
+		_map_open = false
+		menu_open = false
+		menu_panel.visible = false
+		player.can_move = not dialogue_ui.visible
+		_menu_tab = 0
+		SFX.ui()
+		return
 	menu_open = not menu_open
 	menu_panel.visible = menu_open
 	player.can_move = not menu_open and not dialogue_ui.visible
@@ -1024,24 +1076,49 @@ func _fill_menu() -> void:
 		return
 	if _travel_open or _menu_tab == 5:
 		if title_n:
-			title_n.text = "SHRINE TRAVEL"
-		qlines.append("Will is whole. Choose a registered shrine:")
+			title_n.text = "SHRINE"
+		qlines.append("Will restored · phase: %s" % Atmosphere.phase_name())
 		qlines.append("")
+		qlines.append("[0] Rest until dawn (skip night / heal already done)")
+		qlines.append("")
+		qlines.append("— FAST TRAVEL —")
 		var ti := 1
 		for d in _travel_list:
 			var here := " ← you" if str(d.id) == GameState.area_id else ""
 			qlines.append("[%d] %s%s" % [ti, d.name, here])
 			ti += 1
 		if _travel_list.is_empty():
-			qlines.append("(none yet — use more shrines)")
+			qlines.append("(register more shrines by using them)")
 		qlines.append("")
-		qlines.append("1–9 travel · Esc cancel")
+		qlines.append("0 rest · 1–9 travel · Esc close")
+		body.text = "\n".join(qlines)
+		return
+	if _map_open or _menu_tab == 6:
+		if title_n:
+			title_n.text = "WORLD MAP"
+		qlines.append("Playtime %s · steps %d · areas %d" % [
+			GameState.playtime_str(), GameState.steps_taken, GameState.areas_visited.size()
+		])
+		qlines.append("Battles won %d · fled %d · secrets %d" % [
+			GameState.battles_won, GameState.battles_fled, GameState.secrets_found
+		])
+		qlines.append("")
+		qlines.append("— SCHOOL GRAPH (visited ★) —")
+		for aid in ContentDB.WORLD_MAP.keys():
+			var star := "★" if aid in GameState.areas_visited else "·"
+			var here := " ◀" if aid == GameState.area_id else ""
+			var nm: String = str(ContentDB.AREA_NAMES.get(aid, aid))
+			qlines.append("%s %s%s" % [star, nm, here])
+		qlines.append("")
+		qlines.append("N / Esc close map")
 		body.text = "\n".join(qlines)
 		return
 	var tabs := ["QUESTS", "BAG", "CODEX", "SAVE"]
 	if title_n:
 		title_n.text = "MENU · %s  (← → tab)" % tabs[_menu_tab]
-	qlines.append("Tabs: [Q]uests  [B]ag  [C]odex  [V] Save   slot %d · [P] party · [K] measure" % GameState.active_slot)
+	qlines.append("Tabs Q/B/C/V · slot %d · P party · K measure · N map · %s" % [
+		GameState.active_slot, GameState.playtime_str()
+	])
 	qlines.append("")
 	match _menu_tab:
 		0:
@@ -1069,6 +1146,9 @@ func _fill_menu() -> void:
 			qlines.append("Party: %s  (unlocked: %s)  [P] switch" % [
 				GameState.companion_name(),
 				", ".join(GameState.companions_unlocked),
+			])
+			qlines.append("Time %s · %s · steps %d" % [
+				GameState.playtime_str(), Atmosphere.phase_name(), GameState.steps_taken
 			])
 		1:
 			qlines.append("— BAG · ITEMS —")
@@ -1199,6 +1279,12 @@ func _input(event: InputEvent) -> void:
 		# shrine travel
 		if _travel_open or _menu_tab == 5:
 			match code:
+				KEY_0:
+					Atmosphere.time_of_day = 0.22  # dawn
+					GameState.heal_full()
+					GameState.toast.emit("You rest. Dawn returns. Absence is not failure.")
+					SFX.heal()
+					_close_travel()
 				KEY_1:
 					_do_travel(0)
 				KEY_2:
@@ -1213,6 +1299,10 @@ func _input(event: InputEvent) -> void:
 					_do_travel(5)
 				KEY_ESCAPE:
 					_close_travel()
+			return
+		if _map_open or _menu_tab == 6:
+			if code == KEY_ESCAPE or code == KEY_N:
+				_toggle_world_map()
 			return
 		# tab switch
 		match code:

@@ -14,8 +14,8 @@ We do **not** claim parity. We **close the gap system-by-system**, in priority o
 | DS Pokémon pillar | Our equivalent | Status |
 |-------------------|----------------|--------|
 | Tile-grid walk | Grid step movement | **forging** |
-| Towns + interiors | Sanctum / Hall Archive / **Wing Scriptorium** | denser |
-| Routes + grass | Paths, garden wilds | partial |
+| Towns + interiors | Library · Archive · Scriptorium · Observatory · **Crypt** | denser |
+| Routes + grass | Paths, garden, **night denser wilds** | denser |
 | Wild encounter + transition | Tall grass + `!` flash | partial |
 | Trainer battles (LOS + talk) | Teachers + Copyist trainer | denser |
 | Party of creatures | Sol/Luna switch + dual passives | denser |

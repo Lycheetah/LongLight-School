@@ -47,10 +47,35 @@ var collectibles: Array[String] = []  # keys taken
 
 var in_battle: bool = false
 var paused: bool = false
+var playtime_sec: float = 0.0
+var battles_won: int = 0
+var battles_fled: int = 0
+var steps_taken: int = 0
+var areas_visited: Array[String] = []
 
 
 func _ready() -> void:
 	randomize()
+
+
+func _process(delta: float) -> void:
+	if not paused and not in_battle:
+		playtime_sec += delta
+
+
+func playtime_str() -> String:
+	var t := int(playtime_sec)
+	var h := t / 3600
+	var m := (t % 3600) / 60
+	var s := t % 60
+	if h > 0:
+		return "%d:%02d:%02d" % [h, m, s]
+	return "%02d:%02d" % [m, s]
+
+
+func mark_area_visited(id: String) -> void:
+	if id not in areas_visited:
+		areas_visited.append(id)
 
 
 func new_game(arch: String, seeker: String = "Seeker") -> void:
@@ -82,6 +107,11 @@ func new_game(arch: String, seeker: String = "Seeker") -> void:
 	companion_line = "Welcome, %s. The light grows." % player_name
 	active_companion = "sol"
 	companions_unlocked = ["sol"]
+	playtime_sec = 0.0
+	battles_won = 0
+	battles_fled = 0
+	steps_taken = 0
+	areas_visited = ["sanctum"]
 	recalc_relics()
 	flags_changed.emit()
 	inventory_changed.emit()
@@ -414,6 +444,11 @@ func save_game(slot: int = -1) -> void:
 		"chests_opened": chests_opened,
 		"star_sparks": star_sparks,
 		"collectibles": collectibles,
+		"playtime_sec": playtime_sec,
+		"battles_won": battles_won,
+		"battles_fled": battles_fled,
+		"steps_taken": steps_taken,
+		"areas_visited": areas_visited,
 	}
 	var path := slot_path(slot)
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -466,6 +501,11 @@ func load_game(slot: int = -1) -> bool:
 	chests_opened.assign(data.get("chests_opened", []))
 	star_sparks = int(data.get("star_sparks", 0))
 	collectibles.assign(data.get("collectibles", []))
+	playtime_sec = float(data.get("playtime_sec", 0.0))
+	battles_won = int(data.get("battles_won", 0))
+	battles_fled = int(data.get("battles_fled", 0))
+	steps_taken = int(data.get("steps_taken", 0))
+	areas_visited.assign(data.get("areas_visited", []))
 	flags_changed.emit()
 	inventory_changed.emit()
 	hp_changed.emit()

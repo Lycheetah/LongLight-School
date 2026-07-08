@@ -63,6 +63,7 @@ static func all_areas() -> Dictionary:
 		"hall_archive": _hall_archive(),
 		"scriptorium": _scriptorium(),
 		"observatory": _observatory(),
+		"crypt": _crypt(),
 		"grotto": _hidden_grotto(),
 		"starwell": _starwell(),
 	}
@@ -425,6 +426,7 @@ static func _hall() -> Dictionary:
 				"⟪ HALL OF GLYPHS — NIGREDO ⟫",
 				"Three victories unseal the East Wing.",
 				"1 MEASURE · 2 COMPRESS · 3 TRANSMUTE · 4 BREAK · 5 STRIKE · 6 GUARD · 7 SOL · 8 ITEM",
+				"West wall whispers — false stone hides a Crypt.",
 			]},
 		],
 		"tablets": [
@@ -433,6 +435,23 @@ static func _hall() -> Dictionary:
 				"What is false must burn before what is true can stand.",
 				"Π punishes strain. Measure before you claim.",
 			]},
+		],
+		"false_walls": [
+			{"x": 1, "y": 12, "msg": "Cold stone yields… stairs of unsaid things.", "to": "crypt", "tx": 9.5, "ty": 14.5},
+		],
+		"dig_spots": [
+			{"x": 24, "y": 18, "loot": ["glyph_shard", "bread"], "msg": "Under Hall dust: a seeker's lunch."},
+		],
+		"cracks": [[9, 6]],
+		"bushes": [],
+		"switches": [],
+		"collectibles": [
+			{"x": 6, "y": 8, "id": "glyph_shard", "name": "Loose Glyph"},
+		],
+		"wanderers": [
+			{"name": "Ash Whisper", "color": Color(0.5, 0.45, 0.55), "lines": [
+				"West. Press the wall that shouldn't open.",
+			], "path": [[5, 10], [5, 14], [7, 14], [7, 10]], "speed": 0.7},
 		],
 	}
 
@@ -979,6 +998,95 @@ static func _hall_archive() -> Dictionary:
 				"ARCHIVE NOTE",
 				"Trainers in the School are teachers who fight as curriculum.",
 			]},
+		],
+	}
+
+
+static func _crypt() -> Dictionary:
+	var w := 22
+	var h := 18
+	var m := _grid(w, h, T_FLOOR)
+	_border(m)
+	_fill(m, 3, 3, 18, 14, T_FLOOR2)
+	_fill(m, 8, 6, 13, 11, T_RUG)
+	# pillars / tombs
+	for p in [[5, 5], [16, 5], [5, 12], [16, 12], [10, 4], [11, 4]]:
+		m[p[1]][p[0]] = T_WALL
+	m[8][10] = T_ALTAR
+	m[8][11] = T_ALTAR
+	m[h - 2][10] = T_WARP
+	m[h - 2][11] = T_WARP
+	_fill(m, 4, 4, 6, 5, T_WATER)  # reflecting pool of silence
+	return {
+		"id": "crypt", "name": "Crypt of the Unsaid", "w": w, "h": h, "tiles": m,
+		"spawn": Vector2(10.5, 14.5),
+		"warps": [
+			{"x": 10, "y": h - 2, "to": "hall", "tx": 3.5, "ty": 12.5},
+			{"x": 11, "y": h - 2, "to": "hall", "tx": 3.5, "ty": 13.0},
+		],
+		"npcs": [
+			{
+				"x": 7.0, "y": 10.0, "name": "Crypt Warden", "face": "◇",
+				"color": Color(0.55, 0.5, 0.7),
+				"trainer": true,
+				"foe": "ash_scribe",
+				"flag": "trainer_crypt",
+				"lines": [
+					"This vault holds what seekers never voiced.",
+					"Face an Ash Scribe. Then the Unsaid at the heart.",
+				],
+				"after": ["The vault remembers your courage."],
+			},
+			{
+				"x": 14.5, "y": 9.5, "name": "Silent Shelf", "face": "…",
+				"color": Color(0.4, 0.4, 0.45),
+				"lines": [
+					"…",
+					"(The shelf says nothing. That is the lesson.)",
+				],
+			},
+		],
+		"spawns": [
+			{"x": 10, "y": 8, "foe": "unsaid", "once": true, "flag": "unsaid_down", "boss": true},
+			{"x": 6, "y": 12, "foe": "ash_scribe", "once": true},
+			{"x": 15, "y": 12, "foe": "riddle_wraith", "once": true},
+			{"x": 12, "y": 5, "foe": "fog_imp", "once": false},
+		],
+		"wild": [],
+		"chests": [
+			{"x": 17, "y": 8, "loot": ["elixir", "glyph_shard", "glyph_shard"], "hint": "Unsaid coffer."},
+			{"x": 4, "y": 10, "loot": ["repel_dust", "candle"], "hint": "Dusty niche."},
+		],
+		"signs": [
+			{"x": 10, "y": 6, "lines": [
+				"CRYPT OF THE UNSAID",
+				"What is not measured still has weight.",
+			]},
+		],
+		"tablets": [
+			{"x": 12, "y": 6, "lines": [
+				"TABLET OF SILENCE",
+				"Nigredo includes the words you swallowed.",
+				"Speak them as structure — or they fight you as ghosts.",
+			]},
+		],
+		"collectibles": [
+			{"x": 16, "y": 14, "id": "star_spark", "name": "Star Spark"},
+		],
+		"dig_spots": [
+			{"x": 8, "y": 14, "loot": ["glyph_shard", "veras_dust"], "msg": "Ash under flagstones."},
+		],
+		"cracks": [[5, 8], [16, 9]],
+		"bushes": [],
+		"switches": [
+			{"x": 11, "y": 10, "id": "crypt_bell", "msg": "A dead bell tolls once. The Unsaid stirs.", "flag": "crypt_bell"},
+		],
+		"false_walls": [],
+		"wanderers": [
+			{"name": "Echo Without Mouth", "color": Color(0.4, 0.35, 0.5), "lines": [
+				"………",
+				"(You understand without hearing.)",
+			], "path": [[9, 11], [13, 11], [13, 7], [9, 7]], "speed": 0.6},
 		],
 	}
 
