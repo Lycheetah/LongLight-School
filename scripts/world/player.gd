@@ -114,7 +114,8 @@ func _physics_process(delta: float) -> void:
 		var e: float = 1.0 - (1.0 - u) * (1.0 - u)
 		global_position = _slide_from.lerp(_slide_to, e)
 		_anim += delta * 12.0
-		var f := [0, 1, 0, 2][int(_anim) % 4]
+		var frames: Array = [0, 1, 0, 2]
+		var f: int = int(frames[int(_anim) % 4])
 		_set_frame(_dir_i, f)
 		if u >= 1.0:
 			global_position = _slide_to
