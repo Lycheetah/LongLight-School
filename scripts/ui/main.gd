@@ -69,17 +69,66 @@ func _build_name_ui() -> void:
 	_name_edit.offset_top = -24
 	_name_edit.offset_right = 160
 	_name_edit.offset_bottom = 24
+	# Enter inside LineEdit never reaches _unhandled_input — must use text_submitted
+	_name_edit.text_submitted.connect(_on_name_submitted)
+	_name_edit.gui_input.connect(_on_name_gui_input)
 	_name_layer.add_child(_name_edit)
+	var go := Button.new()
+	go.text = "Continue →"
+	go.set_anchors_preset(Control.PRESET_CENTER)
+	go.offset_left = -100
+	go.offset_top = 40
+	go.offset_right = 100
+	go.offset_bottom = 76
+	go.pressed.connect(_confirm_name)
+	_name_layer.add_child(go)
 	var hint := Label.new()
-	hint.text = "Type a name · Enter continue · Esc = Seeker"
+	hint.text = "Type a name · Enter / button continue · Esc = Seeker"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	hint.offset_top = -120
-	hint.offset_left = -300
-	hint.offset_right = 300
+	hint.offset_left = -320
+	hint.offset_right = 320
 	hint.offset_bottom = -80
 	hint.add_theme_color_override("font_color", Color("8a80a8"))
 	_name_layer.add_child(hint)
+
+
+func _on_name_submitted(_text: String) -> void:
+	_confirm_name()
+
+
+func _on_name_gui_input(event: InputEvent) -> void:
+	# Fallback if text_submitted is blocked on some platforms
+	if event is InputEventKey and event.pressed and not event.echo:
+		var pk: int = event.physical_keycode
+		var kc: int = event.keycode
+		if pk == KEY_ENTER or pk == KEY_KP_ENTER or kc == KEY_ENTER or kc == KEY_KP_ENTER:
+			_confirm_name()
+			_name_edit.accept_event()
+		elif pk == KEY_ESCAPE or kc == KEY_ESCAPE:
+			_seeker_name = "Seeker"
+			_leave_name_to_arch()
+			_name_edit.accept_event()
+
+
+func _confirm_name() -> void:
+	if _phase != "name" or not _name_layer or not _name_layer.visible:
+		return
+	_seeker_name = _name_edit.text.strip_edges()
+	if _seeker_name == "":
+		_seeker_name = "Seeker"
+	_leave_name_to_arch()
+
+
+func _leave_name_to_arch() -> void:
+	if _name_edit:
+		_name_edit.release_focus()
+	_name_layer.visible = false
+	archetype.visible = true
+	_phase = "arch"
+	_refresh_arch()
+	SFX.ui()
 
 
 func _build_load_ui() -> void:
@@ -200,22 +249,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if _phase == "name" and _name_layer.visible:
-		if event.is_action_pressed("interact") or (event is InputEventKey and event.pressed and event.keycode == KEY_ENTER):
-			_seeker_name = _name_edit.text.strip_edges()
-			if _seeker_name == "":
+		# Prefer LineEdit signals; this is backup when focus is elsewhere
+		if event is InputEventKey and event.pressed and not event.echo:
+			var pk2: int = event.physical_keycode
+			var kc2: int = event.keycode
+			if pk2 == KEY_ENTER or pk2 == KEY_KP_ENTER or kc2 == KEY_ENTER or kc2 == KEY_KP_ENTER \
+					or event.is_action_pressed("interact"):
+				_confirm_name()
+				get_viewport().set_input_as_handled()
+			elif pk2 == KEY_ESCAPE or event.is_action_pressed("menu"):
 				_seeker_name = "Seeker"
-			_name_layer.visible = false
-			archetype.visible = true
-			_phase = "arch"
-			_refresh_arch()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("menu"):
-			_seeker_name = "Seeker"
-			_name_layer.visible = false
-			archetype.visible = true
-			_phase = "arch"
-			_refresh_arch()
-			get_viewport().set_input_as_handled()
+				_leave_name_to_arch()
+				get_viewport().set_input_as_handled()
 		return
 
 	if _phase == "arch" and archetype.visible:
@@ -225,7 +270,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("move_right") or event.is_action_pressed("move_down"):
 			arch_i = (arch_i + 1) % arch_keys.size()
 			_refresh_arch()
-		elif event.is_action_pressed("interact"):
+		elif event.is_action_pressed("interact") or (event is InputEventKey and event.pressed \
+				and (event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER)):
 			GameState.new_game(arch_keys[arch_i], _seeker_name)
 			_phase = "play"
 			_start_overworld()
