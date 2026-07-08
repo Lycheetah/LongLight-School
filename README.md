@@ -1,7 +1,10 @@
 # THE LONG LIGHT — School World
 
+**GitHub:** https://github.com/Lycheetah/LongLight-School  
+
 **Godot 4.3** · Lycheetah Mystery School RPG · GBA/DS soul  
-**Full Great Work arc:** Nigredo → Albedo → Mirror → Citrinitas → **Rubedo**
+**Full Great Work arc:** Nigredo → Albedo → Mirror → Citrinitas → **Rubedo**  
+**Showcase:** Grok 4.5 single-session forge with Mac — see `SESSION_SHOWCASE.md`
 
 ```bash
 bash /home/guestpc/AZOTH/WORKSPACE/LongLight-School/launch.sh
