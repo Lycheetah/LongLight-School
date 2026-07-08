@@ -5,6 +5,7 @@
 Top-down handheld feel (Pokémon Advanced / Nintendo DS energy) · D&D-flavored stats · framework combat · full alchemy arc · secrets · trainers · ending.
 
 > **Repo:** [github.com/Lycheetah/LongLight-School](https://github.com/Lycheetah/LongLight-School)  
+> **Agents continuing this project:** read **[`AGENTS.md`](./AGENTS.md)** first (architecture, laws, recipes, next lanes).  
 > **Showcase:** forged in a **single Grok 4.5 session** with Mac — see [`SESSION_SHOWCASE.md`](SESSION_SHOWCASE.md) · gap map in [`ROADMAP.md`](ROADMAP.md)
 
 ---
